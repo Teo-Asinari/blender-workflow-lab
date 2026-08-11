@@ -19,8 +19,23 @@ one **Bake Normal Map** button that runs the whole gauntlet — with
 every failure reported as a clear, actionable message instead of a
 traceback or a silently black texture.
 
-*(No screenshots included — see the GUI checklist at the bottom to see
-it live in a minute.)*
+## High-to-low workflow
+
+### 1. High-poly source and plain low-poly target
+
+![High-poly source beside the unbaked low-poly target](../../media/screenshots/kiln/Screenshot%202026-08-11%20020629.png)
+
+### 2. Explicit projection cage
+
+![Explicit cage fitted around the low-poly target](../../media/screenshots/kiln/Screenshot%202026-08-11%20020933.png)
+
+### 3. Generated tangent-space normal map
+
+![Normal map generated from the high-poly source](../../media/screenshots/kiln/Screenshot%202026-08-11%20021116.png)
+
+### 4. High-poly source and baked low-poly result
+
+![High-poly source beside the low-poly model with its baked normal map](../../media/screenshots/kiln/Screenshot%202026-08-11%20020803.png)
 
 ## Install
 

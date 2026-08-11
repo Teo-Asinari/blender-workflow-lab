@@ -28,8 +28,19 @@ the main 0–1 tile, low-density islands, and islands too narrow to paint
 reliably at a chosen texture resolution. Analysis never edits UVs; only an
 explicit **Select** action changes face selection.
 
-*(No screenshots included — see the GUI checklist below to see it live in
-under a minute.)*
+## Display modes
+
+### Island Colors
+
+![UV islands colored distinctly in the 3D viewport](../../media/screenshots/uv-island-overlay/Screenshot%202026-08-11%20015756.png)
+
+### Texel Density
+
+![Texel-density checkerboard shown on the model](../../media/screenshots/uv-island-overlay/Screenshot%202026-08-11%20015939.png)
+
+### Islands + Density
+
+![UV island colors and texel density shown together](../../media/screenshots/uv-island-overlay/Screenshot%202026-08-11%20015455.png)
 
 ## Install
 

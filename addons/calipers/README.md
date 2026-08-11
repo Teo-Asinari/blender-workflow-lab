@@ -14,6 +14,8 @@ visible against the mesh instead of an abstract number.
 Requires Blender 4.2+; developed and probe-verified against
 Blender 5.1.2.
 
+![Scale-aware voxel-remesh estimates and viewport guide](../../media/screenshots/calipers/Screenshot%202026-08-11%20020208.png)
+
 ## The problem
 
 Voxel remeshing launches an unexpectedly expensive operation whenever

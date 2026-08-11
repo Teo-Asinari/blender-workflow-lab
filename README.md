@@ -1,6 +1,9 @@
-# Blender Improvements
+# Blender Workflow Lab
 
-Enhancements to Blender's sculpting, texture painting, and UX workflows — inspired by workflows found in specialized 3D tools such as 3DCoat and Substance Painter. Shipped as add-ons where Python can carry the feature; researched toward upstream contributions where it can't.
+Practical tools and technical experiments for better Blender sculpting,
+texture painting, UV, baking, and UX workflows. Ideas are shipped as add-ons
+where Python can carry the feature and researched toward upstream
+contributions where it cannot.
 
 > This is an independent project. It is not affiliated with, endorsed by, or derived from 3DCoat (Pilgway), Substance Painter (Adobe), or any other product mentioned; product names are used only to describe comparable workflows. All code here is original, written against Blender's public APIs.
 
@@ -10,6 +13,22 @@ All five are tested against **Blender 5.1.2**, ship with test suites that run
 against a real Blender binary, and install by copying the folder (minus
 `tests/`) into your `scripts/addons/` directory. See each add-on's README for
 usage, limitations, and interactive acceptance checks.
+
+## In use
+
+### UV Island Overlay
+
+![UV islands and texel density shown together](media/screenshots/uv-island-overlay/Screenshot%202026-08-11%20015455.png)
+
+### Kiln
+
+| High-poly source and plain low-poly target | High-poly source and baked low-poly result |
+| --- | --- |
+| ![High-poly source beside the unbaked low-poly target](media/screenshots/kiln/Screenshot%202026-08-11%20020629.png) | ![High-poly source beside the baked low-poly result](media/screenshots/kiln/Screenshot%202026-08-11%20020803.png) |
+
+### Calipers
+
+![Scale-aware voxel-remesh estimates and viewport guide](media/screenshots/calipers/Screenshot%202026-08-11%20020208.png)
 
 ### [Seam Path Tool](addons/seam_path_tool/) — v1.4.0
 
@@ -66,14 +85,13 @@ as register-only material channels rather than paint canvases.
 A stack-wide selector chooses 1K, 2K, 4K, or experimental 8K for newly
 created Paint layers.
 
-Impasto currently offers three painting paths:
-
-- Blender's native Texture Paint brush for one channel at a time;
-- **Blender Brush → N Channels**, which captures a native Draw stroke and
-  replays its footprint into every enabled channel; and
-- an experimental **GPU Paint All Channels** session that keeps channel
-  textures GPU-resident, previews the composed PBR result while painting, and
-  flushes them to Blender images explicitly or on session exit.
+Impasto's default and primary painting path is **GPU Paint All Channels**. It
+keeps channel textures GPU-resident, previews the composed PBR result while
+painting, and flushes them to Blender Images only at explicit synchronization
+boundaries or on session exit. Blender's native Texture Paint remains available
+for single-channel work. The older **Blender Brush Replay** path is retained
+only as a prototype: replaying a stroke separately into each channel is too
+slow and delayed for practical painting.
 
 The streamlined GPU workflow includes a brush-sized reticle, front-surface
 depth rejection for both painting and preview, per-stroke multi-channel GPU

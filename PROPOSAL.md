@@ -1,4 +1,4 @@
-# Blender Improvements Proposal
+# Blender Workflow Lab — Core Improvements Proposal
 
 A proposal for enhancing Blender with features and workflows inspired by those found in specialized tools such as 3DCoat and Substance Painter. The goal is to bring Blender's sculpting, painting, and UX capabilities closer to — or beyond — dedicated 3D content creation software, either through add-ons or upstream contributions.
 
