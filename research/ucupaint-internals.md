@@ -185,3 +185,90 @@ The codebase is effectively a fossil record of Blender API churn. Clusters, roug
 **Versioning.** Ship the migration runner and lib-revision mechanism in v0. Gate every migration on (schema_version, blender_version), like `versioning.py` does.
 
 **Risk read:** the hard parts are not the layer stack (a weekend of node-graph generation) but (a) colorspace policy — decide blending space up front, it's their most-regretted decision; (b) EEVEE recompile latency on big stacks — mitigated by narrow interfaces and zero-delta reconciliation; (c) Blender API churn — budget a compat layer module from the start; their 691 version gates say one point release per year will break something; (d) bake correctness across GPU/UDIM/multi-object — copy their workarounds rather than rediscovering them.
+
+## 9. Post-implementation comparison with Impasto
+
+**Updated 2026-08-14.** The architecture study above examined Ucupaint 2.4.8
+while Impasto was still being designed. Ucupaint 2.4.9 is now the current
+release, and Impasto 0.15.24 has implemented a materially different painting
+architecture from the conservative feasibility sketch in §8.
+
+The projects overlap as Blender layer-stack tools, but optimize for different
+problems:
+
+- **Ucupaint** is the broader and more mature system for constructing,
+  transforming, masking, baking, and exporting complex layered materials.
+- **Impasto** is a narrower, material-oriented system built around responsive,
+  simultaneous painting into distinct PBR channel canvases.
+
+### The important meaning of “multi-channel”
+
+Ucupaint can make one layer affect multiple material channels. Its primary
+painted image is a shared layer source; per-channel overrides can reinterpret
+that source or supply distinct fixed values, images, or procedural sources.
+This provides useful multi-channel *material semantics*, especially because
+the channels can share masks and transforms.
+
+Painting itself remains single-image: Ucupaint assigns exactly one Blender
+Image as the active Texture Paint canvas. It does not write independently
+chosen Base Color, Roughness, Metallic, Normal, Height, and other values into
+separate channel images during one brush stroke.
+
+Impasto does. A Paint layer owns a separate image per registered channel. Its
+GPU engine writes a distinct payload to every enabled target canvas in one
+stroke and records them as one multi-channel undo transaction. This is
+Impasto's central reason to exist: the user paints a material rather than
+painting one texture channel at a time.
+
+### Capability comparison
+
+| Area | Ucupaint | Impasto |
+| --- | --- | --- |
+| Painting engine | Blender native Texture Paint with one active Image | Custom GPU-resident multi-channel engine; native single-channel editing remains available |
+| Channels | Arbitrary user-defined RGB, Value, and Normal channels | Fixed Principled-PBR-oriented channel registry |
+| Layer sources | Image, color, vertex color, procedural, background, AO, edge detection, and others | Paint, Fill, and pass-through Group layers |
+| Masks | Mature image, procedural, color-ID, AO, and other masks with per-channel gating | Paintable image masks with visibility, inversion, opacity, and per-channel scope |
+| Blending and effects | Broad per-channel blend modes, modifiers, and transitions | A smaller set of material-focused composition semantics |
+| Normal/displacement | Bump, normal, displacement, vector displacement, parallax, and smooth bump | Tangent Normal and Height painting with bottom-up RNM normal composition |
+| Texture layouts | UDIM and image-atlas support | One ordinary image per channel binding; UDIM and mixed-UV flattening are not supported |
+| Baking | Extensive channel, layer, mask, AO, multires, other-object, and vertex-color baking | Stack flattening to channel images; high-to-low normal baking is handled by Kiln |
+| Compatibility and distribution | Long Blender-version history, migrations, GitHub releases, and Blender Extensions | Blender 5.1 target; source-folder installation while release packaging is prepared |
+
+Ucupaint therefore remains substantially ahead in procedural sources, UDIMs,
+image atlases, arbitrary channels, mapping modes, modifiers, displacement,
+baking breadth, compatibility, and production hardening. Impasto should not be
+described as a general replacement for it.
+
+### Performance claims and limits
+
+Calling Ucupaint “CPU-resident” is imprecise. It delegates painting to
+Blender's native Texture Paint implementation, which may use GPU resources
+internally, while Blender Images remain the authoritative canvases. The
+defensible distinction is that Ucupaint does not maintain a private set of
+resident channel textures or a multi-render-target painting session.
+
+Consequently, do not claim that Ucupaint is categorically slow at 4K without
+an equivalent benchmark. It inherits Blender Texture Paint behavior, including
+single-image targeting and Image update/undo costs, but actual performance
+depends on the Blender version, brush, mesh, layer graph, and hardware.
+
+Impasto has measured 4K production runs, including a five-channel session on a
+Quadro RTX 5000 Max-Q sustaining 272–523 input dabs/s with approximately
+0.0045–0.0063 ms GPU command-submission time per dab. Those figures describe
+that specific workload and hardware, not universal throughput. Its performance
+tradeoffs are substantial VRAM use, GPU-session startup, explicit Image
+synchronization delays, and limited backend qualification.
+
+### Positioning
+
+The accurate public summary is:
+
+> Ucupaint is currently the stronger general-purpose Blender layer-texturing
+> system. Impasto focuses on a different interaction: painting distinct PBR
+> channel canvases simultaneously through a GPU-resident material brush.
+
+Current upstream references:
+
+- [Ucupaint repository](https://github.com/ucupumar/ucupaint)
+- [Ucupaint layer-channel documentation](https://ucupumar.github.io/ucupaint-wiki/01.03.layer-channel/)
+- [Ucupaint layer documentation](https://ucupumar.github.io/ucupaint-wiki/01.02.layer/)
