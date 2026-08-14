@@ -188,6 +188,27 @@ layered normals, and GPU multi-channel Paint/Erase workflow are usable. Its GPU
 path remains under active qualification—especially 8K, complex mixed-UV stack
 previews, sparse undo capture, and Soften/Smear seam behavior.
 
+## Distribution roadmap
+
+The add-ons currently use Blender's legacy add-on packaging and are installed
+from their source folders. Making them easier to install is primarily packaging
+work rather than a redesign. The planned sequence is:
+
+1. Publish a versioned, installable ZIP for each add-on through GitHub Releases.
+2. Add `blender_manifest.toml`, license metadata, and package exclusions.
+3. Test every built ZIP using Blender's **Install from Disk** workflow.
+4. Submit the stable add-ons to the Blender Extensions platform for review.
+
+Calipers, Kiln, and UV Island Overlay should require only straightforward
+packaging. Seam Path Tool needs additional care around its optional SciPy
+acceleration and documented fallback behavior. Impasto can be packaged in the
+same way, but should initially be distributed as experimental/beta software and
+receive extra validation of the packaged GPU workflow.
+
+GitHub Releases are the immediate priority: they provide a one-click download
+without waiting for Blender Extensions moderation, and the resulting packages
+can then form the basis of the official submissions.
+
 ## License
 
 The add-ons are GPL-2.0-or-later (as Blender add-ons must be; see SPDX headers). Documentation and research notes: all rights reserved for now.
