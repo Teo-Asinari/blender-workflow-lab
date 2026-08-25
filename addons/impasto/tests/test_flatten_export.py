@@ -114,4 +114,39 @@ masked_result = flatten_export.composite_channel(
     masked_stack, "normal", 2, 2)
 check("normal image masks attenuate RNM detail",
       np.allclose(masked_result[0, 0, :3], half_expected, atol=1e-5))
+
+source_material = bpy.data.materials.new("Flatten Source Material")
+source_material.use_nodes = True
+base_export = rgba_image("Flatten Export Base", (0.2, 0.3, 0.4, 1.0))
+rough_export = rgba_image("Flatten Export Rough", (0.7, 0.7, 0.7, 1.0))
+normal_export = normal_image("Flatten Export Normal", (0.0, 0.0, 1.0))
+gltf_material = flatten_export.build_gltf_material(source_material, {
+    "base_color": base_export,
+    "roughness": rough_export,
+    "normal": normal_export,
+})
+check("glTF preparation preserves source material",
+      bpy.data.materials.get(source_material.name) == source_material)
+check("glTF material is separately named",
+      gltf_material.name == source_material.name + " glTF")
+principled = next(node for node in gltf_material.node_tree.nodes
+                  if node.bl_idname == 'ShaderNodeBsdfPrincipled')
+check("base color image is wired directly",
+      principled.inputs["Base Color"].is_linked)
+check("roughness image is wired directly",
+      principled.inputs["Roughness"].is_linked)
+check("normal image uses a Normal Map node",
+      principled.inputs["Normal"].links[0].from_node.bl_idname
+      == 'ShaderNodeNormalMap')
+zero_emission = rgba_image("Flatten Zero Emission", (0.0, 0.0, 0.0, 1.0))
+white_emission = rgba_image("Flatten White Emission", (1.0, 1.0, 1.0, 1.0))
+no_glow = flatten_export.build_gltf_material(source_material, {
+    "base_color": base_export,
+    "emission_color": white_emission,
+    "emission_strength": zero_emission,
+})
+no_glow_principled = next(node for node in no_glow.node_tree.nodes
+                          if node.bl_idname == 'ShaderNodeBsdfPrincipled')
+check("zero emission strength does not export a white glow",
+      not no_glow_principled.inputs["Emission Color"].is_linked)
 print("flatten export tests passed")

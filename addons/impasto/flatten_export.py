@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Non-destructive, image-datablock export of an Impasto stack."""
 
+import os
+import re
+
 import bpy
 
 from . import compat, model, snapshot
@@ -188,10 +191,104 @@ def flatten_stack(tree, material_name, width, height, pack=True):
         image = old or bpy.data.images.new(name, width, height, alpha=True)
         compat.set_image_colorspace(image, ch.colorspace)
         data = composite_channel(stack_model, key, width, height)
-        image.pixels.foreach_set(data.ravel())
+        # Some blend expressions promote NumPy intermediates to float64. Blender's
+        # image pixel bulk setter requires contiguous float32 data on 5.1.x.
+        pixels = _np().ascontiguousarray(data, dtype=_np().float32).ravel()
+        image.pixels.foreach_set(pixels)
         image.update()
         image.use_fake_user = True
         if pack:
             image.pack()
         outputs.append(image)
     return outputs
+
+
+def channel_images(tree, material_name, images):
+    """Return flattened images by stable Impasto channel key."""
+    stack_model = snapshot.snapshot(tree)
+    keys = [key for key in stack_model.channels if key in model.CHANNEL_MAP]
+    return dict(zip(keys, images))
+
+
+def save_channel_images(images_by_channel, directory):
+    """Save flattened channels as PNG files and return their absolute paths."""
+    if not directory:
+        raise RuntimeError("Choose an export texture directory")
+    if directory.startswith("//") and not bpy.data.filepath:
+        raise RuntimeError("Save the .blend before using a // relative texture path")
+    absolute = bpy.path.abspath(directory)
+    os.makedirs(absolute, exist_ok=True)
+    paths = {}
+    for key, image in images_by_channel.items():
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", image.name).strip("_")
+        path = os.path.join(absolute, safe_name + ".png")
+        image.file_format = 'PNG'
+        image.filepath_raw = path
+        image.save()
+        paths[key] = path
+    return paths
+
+
+def _image_has_positive_rgb(image, threshold=1e-6):
+    """Whether an image contains a meaningful positive RGB value."""
+    pixels = _pixels(image)
+    return bool(_np().max(pixels[..., :3]) > threshold)
+
+
+def build_gltf_material(source_material, images_by_channel):
+    """Create/update a simple exporter-recognizable Principled material.
+
+    The editable Impasto material and its stack are never modified.
+    """
+    name = source_material.name + " glTF"
+    material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    material.use_nodes = True
+    nodes = material.node_tree.nodes
+    links = material.node_tree.links
+    nodes.clear()
+    output = nodes.new("ShaderNodeOutputMaterial")
+    output.location = (420.0, 0.0)
+    principled = nodes.new("ShaderNodeBsdfPrincipled")
+    principled.location = (100.0, 0.0)
+    links.new(principled.outputs["BSDF"], output.inputs["Surface"])
+
+    y = 300.0
+    for key in ("base_color", "metallic", "roughness", "alpha"):
+        image = images_by_channel.get(key)
+        channel = model.CHANNEL_MAP.get(key)
+        if image is None or channel is None or channel.socket not in principled.inputs:
+            continue
+        texture = nodes.new("ShaderNodeTexImage")
+        texture.name = "Impasto glTF " + key
+        texture.label = channel.label
+        texture.image = image
+        texture.location = (-500.0, y)
+        y -= 230.0
+        links.new(texture.outputs["Color"], principled.inputs[channel.socket])
+
+    # A default-white Emission Color with a zero Strength is non-emissive in
+    # Impasto. glTF cannot represent a per-pixel strength graph directly, so
+    # never wire that white color unless the flattened strength is nonzero.
+    emission = images_by_channel.get("emission_color")
+    strength = images_by_channel.get("emission_strength")
+    if emission is not None and strength is not None and _image_has_positive_rgb(strength):
+        texture = nodes.new("ShaderNodeTexImage")
+        texture.name = "Impasto glTF emission_color"
+        texture.label = "Emission Color"
+        texture.image = emission
+        texture.location = (-500.0, y)
+        links.new(texture.outputs["Color"], principled.inputs["Emission Color"])
+
+    normal_image = images_by_channel.get("normal")
+    if normal_image is not None:
+        texture = nodes.new("ShaderNodeTexImage")
+        texture.name = "Impasto glTF normal"
+        texture.label = "Tangent Normal"
+        texture.image = normal_image
+        texture.location = (-500.0, y)
+        normal = nodes.new("ShaderNodeNormalMap")
+        normal.space = 'TANGENT'
+        normal.location = (-180.0, y)
+        links.new(texture.outputs["Color"], normal.inputs["Color"])
+        links.new(normal.outputs["Normal"], principled.inputs["Normal"])
+    return material

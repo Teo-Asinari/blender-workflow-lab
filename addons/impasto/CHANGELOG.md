@@ -4,6 +4,19 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.25
+
+- Extend Flatten / Export into a one-command glTF preparation workflow: save
+  flattened channel PNGs, build a separate exporter-recognizable Principled
+  material, and optionally assign it without modifying the editable stack.
+- Force flattened pixel buffers to contiguous float32 at Blender's image API
+  boundary, fixing real stacks whose NumPy composition promoted to float64.
+- Do not export the default-white emission color when flattened emission
+  strength is zero; this previously made otherwise non-emissive assets glow
+  white in glTF viewers and game engines.
+- Validate direct base-color, scalar, tangent-normal, and zero-emission material
+  wiring with focused regression coverage and an end-to-end production asset.
+
 ## 0.15.24
 
 - Enumerate sparse Undo tile geometry once for all painted channels instead of

@@ -174,7 +174,7 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
         export_box.label(text="Creates new images; layers stay editable")
         export_box.operator_context = 'INVOKE_DEFAULT'
         export_box.operator(ops.IMPASTO_OT_flatten_export.bl_idname,
-                            text="Flatten to Channel Images", icon='RENDER_RESULT')
+                            text="Flatten / Prepare glTF", icon='RENDER_RESULT')
         layout.operator(ops.IMPASTO_OT_stack_rebuild.bl_idname,
                         text="Rebuild", icon='FILE_REFRESH')
 

@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.24 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.15.25 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.
@@ -39,7 +39,7 @@ stroke actually needs dirty and Undo bounds. A post-0.15.20 trace still spent
 111.7 ms per changed view projecting 151,112 triangles; navigation no longer
 performs that work. The first paint flush after moving the view reports the
 one-time cost as `projection_bounds_ms`.
-Version 0.15.24 caches GPU capability probes across sessions in the same
+Version 0.15.24 introduced cached GPU capability probes across sessions in the same
 Blender process and reports detailed startup/shutdown phase summaries. Object,
 image, and stack GPU resources remain session-local for correctness. Undo
 history teardown now drops the owned snapshot graph directly; explicit
@@ -168,7 +168,7 @@ Lifecycle diagnostics use three bounded lines:
 - `GPU_PAINT_STARTUP` for first-draw GPU initialization.
 - `GPU_PAINT_SPIKE_STOP` for teardown after required synchronization.
 
-## Flatten to channel images
+## Flatten / Prepare glTF
 
 The **Flatten / Export** box creates one new Blender Image for every enabled
 stack channel without changing or deleting the source layers. Choose 1K, 2K,
@@ -182,8 +182,14 @@ stored data representation, and flattened outputs are opaque because the
 channel's material default supplies a complete surface below all layers.
 Source images are bilinearly resampled to the chosen size. Flush a resident
 GPU session first. UDIM images and stacks using multiple UV maps are rejected
-rather than producing a misleading result; file-path export is left to
-Blender's Image editor.
+rather than producing a misleading result.
+
+With **Prepare glTF Material** enabled, the same command also saves the
+flattened channels as PNG files (by default beside the blend in `textures/`),
+creates a simple `<source> glTF` Principled material using direct Image Texture
+connections recognized by Blender's glTF exporter, and optionally assigns it
+to the active object. The editable Impasto material and layer stack remain in
+the file unchanged. Reassign the source material to resume painting.
 
 ## Painting engines
 

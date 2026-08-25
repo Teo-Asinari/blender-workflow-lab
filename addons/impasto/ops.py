@@ -2012,6 +2012,16 @@ class IMPASTO_OT_flatten_export(bpy.types.Operator):
     pack_images: BoolProperty(
         name="Pack Images in .blend", default=True,
         description="Pack generated images into the blend file; no files are written")
+    prepare_gltf: BoolProperty(
+        name="Prepare glTF Material", default=True,
+        description="Save PNGs and create a simple Principled material that glTF can export")
+    output_directory: StringProperty(
+        name="Texture Directory", default="//textures",
+        subtype='DIR_PATH', options={'PATH_SUPPORTS_BLEND_RELATIVE'},
+        description="Directory for flattened PNG textures")
+    assign_material: BoolProperty(
+        name="Assign to Active Object", default=True,
+        description="Assign the generated glTF material; the editable Impasto material remains intact")
 
     @classmethod
     def poll(cls, context):
@@ -2030,11 +2040,24 @@ class IMPASTO_OT_flatten_export(bpy.types.Operator):
         try:
             images = flatten_export.flatten_stack(
                 tree, mat.name, size, size, self.pack_images)
+            if self.prepare_gltf:
+                by_channel = flatten_export.channel_images(
+                    tree, mat.name, images)
+                flatten_export.save_channel_images(
+                    by_channel, self.output_directory)
+                export_material = flatten_export.build_gltf_material(
+                    mat, by_channel)
+                if self.assign_material:
+                    obj = context.object
+                    obj.material_slots[obj.active_material_index].material = export_material
         except (RuntimeError, ValueError) as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
-        self.report({'INFO'}, "Created %d non-destructive %s channel images"
-                    % (len(images), self.resolution))
+        message = "Created %d non-destructive %s channel images" % (
+            len(images), self.resolution)
+        if self.prepare_gltf:
+            message += " and glTF material"
+        self.report({'INFO'}, message)
         return {'FINISHED'}
 
 
