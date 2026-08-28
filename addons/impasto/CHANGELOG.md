@@ -4,6 +4,11 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.30
+
+- Recolor Planar Viewport stencil handles to a dark strong green for scale
+  and a dark strong cyan for rotate.
+
 ## 0.15.29
 
 - Double Planar Viewport stencil handle size and draw the knobs with

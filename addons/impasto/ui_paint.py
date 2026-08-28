@@ -317,7 +317,7 @@ class PaintPanelMixin:
             col.label(text="Fixed camera-facing image", icon='INFO')
             col.prop(layer, "brush_stencil_position", text="Position")
             col.prop(layer, "brush_stencil_scale", text="Viewport Scale")
-            col.label(text="Corner boxes scale; top knob rotates",
+            col.label(text="Green boxes scale; cyan knob rotates",
                       icon='INFO')
             col.label(text="Shift keeps aspect  ·  R resets placement")
         else:

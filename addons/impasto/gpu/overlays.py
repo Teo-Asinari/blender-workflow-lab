@@ -83,12 +83,12 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set(prior_blend)
 
 
-# Scale vs rotate must stay distinct without toy amber/cyan.
-_SCALE_FILL = (0.62, 0.24, 0.30, 0.96)
-_SCALE_LINE = (0.14, 0.05, 0.07, 0.95)
-_ROTATE_FILL = (0.38, 0.44, 0.30, 0.96)
-_ROTATE_LINE = (0.10, 0.12, 0.08, 0.95)
-_HINT_COLOR = (0.82, 0.83, 0.84, 0.40)
+# Dark, cool, saturated: green scales, cyan rotates.
+_SCALE_FILL = (0.04, 0.58, 0.32, 0.96)
+_SCALE_LINE = (0.01, 0.14, 0.08, 0.95)
+_ROTATE_FILL = (0.00, 0.56, 0.68, 0.96)
+_ROTATE_LINE = (0.00, 0.14, 0.20, 0.95)
+_HINT_COLOR = (0.70, 0.76, 0.78, 0.40)
 _SCALE_HALF = 13.0
 _ROTATE_RADIUS = 15.6
 _HANDLE_PAD = 4.0
