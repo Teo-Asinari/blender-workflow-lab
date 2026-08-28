@@ -77,6 +77,11 @@ def _toggle(self, context):
                      getattr(self, "name", ""))
 
 
+def _sss_caliper_overlay_update(self, context):
+    from .gpu import sss_caliper_overlay
+    sss_caliper_overlay.sync(context)
+
+
 def _blend_items():
     labels = {"MIX": "Mix", "MULTIPLY": "Multiply", "SCREEN": "Screen",
               "ADD": "Add", "SUBTRACT": "Subtract",
@@ -235,11 +240,13 @@ class ImpastoLayer(bpy.types.PropertyGroup):
         subtype='DISTANCE', unit='LENGTH')
     show_sss_caliper: BoolProperty(
         name="Show SSS Caliper",
-        description="During active GPU painting, show red, green, and blue "
-                    "rings for the effective Subsurface distances "
-                    "(Scale multiplied by Radius RGB); the separate white "
-                    "circle is the screen-sized brush radius",
-        default=False)
+        description="Show red, green, and blue rings for the effective "
+                    "Subsurface distances (Scale multiplied by Radius RGB) "
+                    "while the cursor is over the mesh; the separate white "
+                    "circle is the GPU-paint brush radius and appears only "
+                    "during GPU painting",
+        default=False,
+        update=_sss_caliper_overlay_update)
     brush_radius: FloatProperty(
         name="Brush Radius", default=50.0, min=1.0, soft_max=500.0,
         subtype='PIXEL')
@@ -456,6 +463,8 @@ def _active_index_update(self, context):
             paint.activate_paint_target(context, layer)
         except paint.PaintTargetError:
             pass
+    from .gpu import sss_caliper_overlay
+    sss_caliper_overlay.sync(context)
 
 
 class ImpastoMaterialPreset(bpy.types.PropertyGroup):

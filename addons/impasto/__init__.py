@@ -4,7 +4,7 @@
 bl_info = {
     "name": "Impasto",
     "author": "Teo Asinari",
-    "version": (0, 15, 25),
+    "version": (0, 15, 26),
     "blender": (5, 1, 0),
     "location": "3D Viewport > Sidebar (N) > Impasto tab",
     "description": "Non-destructive PBR material layer stacks",
@@ -49,10 +49,15 @@ if "model" in locals():
         gpu_brush_math = importlib.reload(gpu_brush_math)
         gpu_caliper = importlib.reload(gpu_caliper)
         gpu_overlays = importlib.reload(gpu_overlays)
+        if "gpu_sss_caliper_overlay" in locals():
+            gpu_sss_caliper_overlay = importlib.reload(gpu_sss_caliper_overlay)
+        else:
+            from .gpu import sss_caliper_overlay as gpu_sss_caliper_overlay
     else:
         from .gpu import brush_math as gpu_brush_math
         from .gpu import caliper as gpu_caliper
         from .gpu import overlays as gpu_overlays
+        from .gpu import sss_caliper_overlay as gpu_sss_caliper_overlay
     gpu_engine = importlib.reload(gpu_engine)
     props = importlib.reload(props)
     if "paint" in locals():
@@ -98,6 +103,7 @@ else:
     from .gpu import brush_math as gpu_brush_math
     from .gpu import caliper as gpu_caliper
     from .gpu import overlays as gpu_overlays
+    from .gpu import sss_caliper_overlay as gpu_sss_caliper_overlay
     from . import gpu_engine
     from . import props
     from . import paint
@@ -115,9 +121,11 @@ def register():
     ops.register()
     ui.register()
     engine.register()
+    gpu_sss_caliper_overlay.register()
 
 
 def unregister():
+    gpu_sss_caliper_overlay.unregister()
     engine.unregister()
     ui.unregister()
     ops.unregister()

@@ -63,7 +63,10 @@ stroke/additive semantics and must not be inferred from Normal-profile opacity.
 
 ## Deferred work
 
-- Direct viewport translate/scale/rotate handles; v1 uses numeric fields.
+- Direct viewport **scale and rotate** handles for Planar Viewport stencils
+  (queued). v1 still uses numeric Viewport Scale and Rotation; the overlay
+  already draws the rotated quad. Translate handles remain a sibling (Position
+  is numeric).
 - Preserve-aspect, fit/reset, rake, jitter, random rotation, tiling, UV, and
   triplanar projection.
 - Color texture application into channel values; v1 uses one synchronized mask.

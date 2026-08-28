@@ -4,6 +4,13 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.26
+
+- Show the SSS Caliper colored Scale×Radius rings whenever Show SSS Caliper
+  is enabled and the cursor is over the mesh, not only during GPU painting.
+- Keep the white screen-space brush ring GPU-paint-only, and skip the idle
+  overlay while a GPU paint session is already drawing the caliper.
+
 ## 0.15.25
 
 - Extend Flatten / Export into a one-command glTF preparation workflow: save

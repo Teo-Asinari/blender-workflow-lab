@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Viewport overlay geometry and drawing for the GPU paint session."""
+"""Viewport overlay geometry and drawing for GPU paint and the SSS caliper."""
 
 import math
 
@@ -114,15 +114,33 @@ def format_scene_length(value, scene_unit_scale=1.0):
     return "%.3g nm" % (metres * 1e9)
 
 
-def _sss_cursor_surface(session, region, rv3d):
-    if session.cursor is None or rv3d is None:
+class SSSCaliperSource:
+    """Minimal duck-typed source for ``draw_sss_caliper``.
+
+    A GPU paint session already exposes these attributes; idle overlay
+    uses this adapter so ring drawing does not require a live session.
+    """
+
+    __slots__ = ("cursor", "obj_name", "settings",
+                 "overlay_circle_batch", "overlay_color_shader")
+
+    def __init__(self, cursor=None, obj_name="", settings=None):
+        self.cursor = cursor
+        self.obj_name = obj_name or ""
+        self.settings = dict(settings or {})
+        self.overlay_circle_batch = None
+        self.overlay_color_shader = None
+
+
+def _sss_cursor_surface(overlay, region, rv3d):
+    if overlay.cursor is None or region is None or rv3d is None:
         return None
-    obj = bpy.data.objects.get(session.obj_name)
+    obj = bpy.data.objects.get(overlay.obj_name)
     if obj is None:
         return None
     from bpy_extras import view3d_utils
     from mathutils import Vector
-    coord = Vector(session.cursor)
+    coord = Vector(overlay.cursor)
     origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
     direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
     inv = obj.matrix_world.inverted_safe()
@@ -149,32 +167,39 @@ def _sss_cursor_surface(session, region, rv3d):
     return world, (p1 - p0).length, diagonal
 
 
-def _ensure_overlay_circle(session):
-    if session.overlay_circle_batch is None:
+def _ensure_overlay_circle(overlay):
+    if overlay.overlay_circle_batch is None:
         from gpu_extras.batch import batch_for_shader
         points = [(math.cos(i * math.tau / 96),
                    math.sin(i * math.tau / 96)) for i in range(96)]
-        session.overlay_color_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-        session.overlay_circle_batch = batch_for_shader(
-            session.overlay_color_shader, "LINE_LOOP", {"pos": points})
+        overlay.overlay_color_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+        overlay.overlay_circle_batch = batch_for_shader(
+            overlay.overlay_color_shader, "LINE_LOOP", {"pos": points})
 
 
-def draw_sss_caliper(session, region, rv3d, inspect_active):
-    if not session.settings.get("sss_caliper_enabled", False) \
+def draw_sss_caliper(overlay, region, rv3d, inspect_active,
+                     brush_ring_hint=True):
+    """Draw colored Scale×Radius rings.
+
+    ``overlay`` needs ``cursor``, ``settings``, ``obj_name``, and the
+    overlay batch/shader attributes. GPU sessions and the idle adapter
+    both satisfy that contract.
+    """
+    if not overlay.settings.get("sss_caliper_enabled", False) \
             or inspect_active():
         return
-    surface = _sss_cursor_surface(session, region, rv3d)
+    surface = _sss_cursor_surface(overlay, region, rv3d)
     if surface is None:
         return
     _world, pixels_per_unit, bbox_diagonal = surface
-    scale = float(session.settings.get("sss_caliper_scale", 0.0))
-    radius = tuple(session.settings.get(
+    scale = float(overlay.settings.get("sss_caliper_scale", 0.0))
+    radius = tuple(overlay.settings.get(
         "sss_caliper_radius", (1.0, 0.2, 0.1)))
     effective, radii_px, percentages, too_small = sss_caliper_layout(
         scale, radius, pixels_per_unit, bbox_diagonal)
     if max(radii_px, default=0.0) <= 0.0:
         return
-    _ensure_overlay_circle(session)
+    _ensure_overlay_circle(overlay)
     colors = ((1.0, 0.16, 0.12, 0.9), (0.2, 1.0, 0.25, 0.9),
               (0.2, 0.45, 1.0, 0.9))
     prior_blend = gpu.state.blend_get()
@@ -184,27 +209,29 @@ def draw_sss_caliper(session, region, rv3d, inspect_active):
             if radius_px < 0.5:
                 continue
             with gpu.matrix.push_pop():
-                gpu.matrix.translate((*session.cursor, 0.0))
+                gpu.matrix.translate((*overlay.cursor, 0.0))
                 gpu.matrix.scale((radius_px, radius_px, 1.0))
-                session.overlay_color_shader.bind()
-                session.overlay_color_shader.uniform_float("color", color)
-                session.overlay_circle_batch.draw(session.overlay_color_shader)
+                overlay.overlay_color_shader.bind()
+                overlay.overlay_color_shader.uniform_float("color", color)
+                overlay.overlay_circle_batch.draw(overlay.overlay_color_shader)
     finally:
         gpu.state.blend_set(prior_blend)
     import blf
-    unit_scale = float(session.settings.get("scene_unit_scale", 1.0))
+    unit_scale = float(overlay.settings.get("scene_unit_scale", 1.0))
     labels = "  ".join("%s %s (%.2g%% mesh)" % (
         name, format_scene_length(distance, unit_scale), percentage)
         for name, distance, percentage in zip(
             ("R", "G", "B"), effective, percentages))
-    lines = ["SSS CALIPER — colored rings = Scale x Radius RGB", labels,
-             "Colored rings zoom with mesh; white brush ring stays screen-sized"]
+    lines = ["SSS CALIPER — colored rings = Scale x Radius RGB", labels]
+    if brush_ring_hint:
+        lines.append(
+            "Colored rings zoom with mesh; white brush ring stays screen-sized")
     if too_small:
         lines.append("WARNING: SSS rings are very small relative to this mesh")
     blf.size(0, 11)
     for index, line in enumerate(lines):
-        blf.position(0, session.cursor[0] + 14,
-                     session.cursor[1] + 16 + index * 15, 0)
+        blf.position(0, overlay.cursor[0] + 14,
+                     overlay.cursor[1] + 16 + index * 15, 0)
         blf.color(0, 1.0, 1.0, 1.0, 0.95)
         blf.draw(0, line)
     for name, radius_px, color, angle in zip(
@@ -212,8 +239,8 @@ def draw_sss_caliper(session, region, rv3d, inspect_active):
             (0.0, math.tau / 3.0, 2.0 * math.tau / 3.0)):
         if radius_px < 0.5:
             continue
-        blf.position(0, session.cursor[0] + math.cos(angle) * radius_px + 3,
-                     session.cursor[1] + math.sin(angle) * radius_px + 3, 0)
+        blf.position(0, overlay.cursor[0] + math.cos(angle) * radius_px + 3,
+                     overlay.cursor[1] + math.sin(angle) * radius_px + 3, 0)
         blf.color(0, *color)
         blf.draw(0, name)
 

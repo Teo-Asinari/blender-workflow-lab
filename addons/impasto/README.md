@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.25 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.15.26 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.
@@ -114,7 +114,7 @@ GPU-to-Image synchronization remains mandatory and separately timed.
 - Grayscale-stencil normal relief.
 - Configurable preview lighting and a preview-only Base Normal Map fallback.
 - Kiln baked-normal import/repair.
-- A literal-scale SSS Caliper during GPU painting.
+- A literal-scale SSS Caliper while hovering the mesh.
 
 Subsurface IOR and Anisotropy can be registered for material control, but are
 not GPU paint-canvas channels.
@@ -284,11 +284,12 @@ are:
 - **Scale:** the overall scene-space travel distance.
 - **Radius RGB:** relative red, green, and blue travel distances.
 
-The optional **Show SSS Caliper** overlay is currently visible only during GPU
-painting. Its colored rings show the literal projected distances
-`Scale × Radius R/G/B`; the white circle is the screen-sized brush radius.
-There is no visual magnification. Extremely small distances produce a warning
-relative to the mesh bounding-box diagonal.
+The optional **Show SSS Caliper** overlay is visible whenever the toggle is on
+and the cursor is over the mesh. GPU painting is not required. Its colored
+rings show the literal projected distances `Scale × Radius R/G/B`; the white
+circle is the screen-sized GPU-paint brush radius and appears only during a
+GPU paint session. There is no visual magnification. Extremely small distances
+produce a warning relative to the mesh bounding-box diagonal.
 
 ## Storage and material ownership
 
@@ -312,8 +313,8 @@ were recorded.
 - Resident GPU preview supports one visible same-UV image mask per affine
   upper layer. Multiple, independently mapped, lower, or active masks enter
   authoritative Blender material inspection.
-- The SSS Caliper is tied to an active GPU paint session; a persistent pinned
-  inspection mode remains future work.
+- The SSS Caliper's white brush ring is GPU-paint-only; colored Scale×Radius
+  rings remain available outside a GPU session whenever the toggle is on.
 - GPU canvases consume real VRAM. One 4K RGBA16F channel is approximately
   128 MB before preview, depth, and undo resources.
 - Resident painting also keeps one full-size RGBA16F scratch texture regardless

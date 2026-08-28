@@ -27,8 +27,8 @@ try:
     impasto.register()
     check("package registration",
           hasattr(bpy.types.ShaderNodeTree, "impasto"))
-    check("metadata", impasto.bl_info["version"] == (0, 15, 9))
-    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.9")
+    check("metadata", impasto.bl_info["version"] == (0, 15, 26))
+    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.26")
     check("extended brush sections collapse by default",
           not impasto.props.ImpastoLayer.bl_rna.properties[
               "ui_show_emission_paint"].default
@@ -51,7 +51,8 @@ try:
     check("SSS caliper tooltip distinguishes its rings from the brush",
           "red, green, and blue" in
           layer_rna["show_sss_caliper"].description
-          and "white" in layer_rna["show_sss_caliper"].description)
+          and "white" in layer_rna["show_sss_caliper"].description
+          and "GPU-paint" in layer_rna["show_sss_caliper"].description)
     replay_item = impasto.props.ImpastoLayer.bl_rna.properties[
         "paint_workflow"].enum_items["BLENDER"]
     check("brush replay is explicitly marked as a prototype",
