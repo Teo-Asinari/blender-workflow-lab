@@ -220,7 +220,7 @@ previews, sparse undo capture, and Soften/Smear seam behavior.
 
 Users install from GitHub Release ZIPs via **Install from Disk**. Each add-on
 ships a `blender_manifest.toml` (Blender 4.2+ extensions schema) and a
-self-contained `LICENSE` (GPL-2.0-or-later).
+self-contained `LICENSE` (GPL-3.0-or-later).
 
 Build the ZIPs locally with:
 
@@ -236,8 +236,8 @@ Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
 Python, `assets/`, `blender_manifest.toml`, `LICENSE`, and `README.md` are
-included. Packaging does not require SciPy; Seam Path Tool's optional SciPy
-extra remains a user-side install.
+included. Packaging does not require SciPy. Seam Path Tool uses scipy only
+if it is already importable in Blender; every feature has a bundled fallback.
 
 ### Cutting a GitHub Release
 
@@ -247,10 +247,14 @@ and attaches them as release assets. `workflow_dispatch` builds the same ZIPs
 as CI artifacts without creating a release. Do not push a tag until the
 add-on versions in `bl_info` are the ones you want on the Release.
 
-Submitting stable add-ons to the [Blender Extensions](https://extensions.blender.org/)
-platform is a later step (Calipers, Kiln, UV Island Overlay first, then Seam
-Path Tool). Impasto and Sculpt Stroke Recorder stay labeled experimental.
+Submitting to [Blender Extensions](https://extensions.blender.org/) is a
+later human step: Calipers, Kiln, and UV Island Overlay first, then Seam
+Path Tool. Impasto and Sculpt Stroke Recorder stay labeled experimental.
+Dropbox Blend Pause is not for that platform (it quits Dropbox.exe).
 
 ## License
 
-The add-ons are GPL-2.0-or-later (as Blender add-ons must be; see SPDX headers). Documentation and research notes: all rights reserved for now.
+The add-ons are distributed as GPL-3.0-or-later (SPDX headers in source
+remain GPL-2.0-or-later, which permits that). Impasto brush icons under
+`addons/impasto/assets/icons/` are CC0. Documentation and research notes:
+all rights reserved for now.

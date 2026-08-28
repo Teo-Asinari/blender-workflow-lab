@@ -7,5 +7,6 @@ maintainer = "Teo Asinari"
 type = "add-on"
 tags = ["System"]
 blender_version_min = "4.2.0"
-license = ["SPDX:GPL-2.0-or-later"]
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 Teo Asinari"]
 website = "https://github.com/Teo-Asinari/blender-workflow-lab"

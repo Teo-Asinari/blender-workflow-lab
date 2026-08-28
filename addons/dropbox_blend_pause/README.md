@@ -6,7 +6,8 @@ disable the add-on, or quit Blender.
 
 Dropbox has **no per-folder pause** that keeps the cloud copy. The official
 “ignore” marker removes the folder from dropbox.com, so this add-on does not
-use it. It quits `Dropbox.exe` instead.
+use it. It quits `Dropbox.exe` instead. Do not submit this add-on to
+extensions.blender.org: that platform forbids tampering with other software.
 
 Default watch folder:
 

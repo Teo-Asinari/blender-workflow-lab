@@ -46,35 +46,18 @@ then enable **Seam Path Tool**. Copying or symlinking the `seam_path_tool`
 folder into `scripts/addons/` remains a developer option (on Windows:
 `%APPDATA%\Blender Foundation\Blender\5.1\scripts\addons\`).
 
-## Optional dependency: scipy
+## Optional acceleration: scipy
 
-Everything works without scipy. Installing it makes the per-click path
-tree on large meshes a single C-speed solve (`scipy.sparse.csgraph.dijkstra`):
-measured on a 300k-vert grid, ~45 ms per click instead of ~0.8 s of
-background fill — during which a far hover no longer has to fall back to
-a (sometimes slow) A* query. Without scipy, `Topology` mode still gets a
-C-speed tree from a vectorized numpy BFS (numpy ships with Blender);
-`Length` mode falls back to the incremental pure-Python fill, i.e. exactly
-the 1.3.0 behaviour. Small meshes (< 25k verts) always use the
-pure-Python fill — it already completes within the first couple of
-timer slices there, so scipy buys nothing.
+The add-on is self-contained and never installs packages. Every feature
+works with Blender's bundled Python and numpy.
 
-Blender's bundled Python does **not** ship scipy, and a plain
-`pip install scipy` puts it in the Windows *user* site-packages, which
-Blender deliberately ignores. Install it into Blender's user
-`addons/modules` directory (on Blender's `sys.path`, no admin rights
-needed) — Windows `cmd`/PowerShell, adjust the version numbers to yours:
-
-```
-"C:\Program Files\Blender Foundation\Blender 5.1\5.1\python\bin\python.exe" -m pip install --target "%APPDATA%\Blender Foundation\Blender\5.1\scripts\addons\modules" scipy
-```
-
-(From WSL, the same command works with the `/mnt/c/...` path to
-`python.exe` and the expanded `C:\Users\<you>\AppData\Roaming\...` target;
-verified against Blender 5.1.2 / scipy 1.18.0.) The add-on probes for
-scipy lazily — no restart-time cost, and the one-off `import scipy`
-(~0.7 s) happens in the background on the first click's timer tick, never
-inside a click.
+If `scipy` is already importable in that Blender, large-mesh `Length`
+mode can use `scipy.sparse.csgraph.dijkstra` (~45 ms per click on a 300k
+vert grid instead of ~0.8 s of background fill). Otherwise `Topology`
+mode still gets a C-speed tree from vectorized numpy BFS; `Length` mode
+uses the incremental pure-Python fill (1.3.0 behaviour). Meshes under
+25k verts always use the pure-Python fill. The add-on probes for scipy
+lazily on the first click's timer tick, never at enable time.
 
 ## Usage
 
