@@ -4,6 +4,11 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.31
+
+- Draw scale handles as sharp, single-color squares that rotate with the
+  stencil. Drop the beveled two-tone rims on both scale and rotate knobs.
+
 ## 0.15.30
 
 - Recolor Planar Viewport stencil handles to a dark strong green for scale

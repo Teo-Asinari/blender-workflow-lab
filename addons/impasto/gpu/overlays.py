@@ -83,11 +83,9 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set(prior_blend)
 
 
-# Dark, cool, saturated: green scales, cyan rotates.
+# Dark, cool, saturated: green scales, cyan rotates. One fill each, no rim.
 _SCALE_FILL = (0.04, 0.58, 0.32, 0.96)
-_SCALE_LINE = (0.01, 0.14, 0.08, 0.95)
 _ROTATE_FILL = (0.00, 0.56, 0.68, 0.96)
-_ROTATE_LINE = (0.00, 0.14, 0.20, 0.95)
 _HINT_COLOR = (0.70, 0.76, 0.78, 0.40)
 _SCALE_HALF = 13.0
 _ROTATE_RADIUS = 15.6
@@ -110,19 +108,15 @@ void main()
     if (handle_shape < 0.5) {
         dist = length(p) - handle_radius;
     } else {
-        float r = handle_radius * 0.28;
-        vec2 q = abs(p) - vec2(handle_radius) + vec2(r);
-        dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+        vec2 q = abs(p) - vec2(handle_radius);
+        dist = max(q.x, q.y);
     }
     float aa = max(fwidth(dist), 1.0e-4);
     float fill_a = 1.0 - smoothstep(-aa, aa, dist);
-    float stroke_a = 1.0 - smoothstep(-aa, aa, abs(dist) - handle_stroke);
-    vec4 color = handle_line * stroke_a;
-    color = mix(color, handle_fill, fill_a);
-    if (color.a < 0.02) {
+    if (fill_a < 0.02) {
         discard;
     }
-    fragColor = color;
+    fragColor = handle_fill * fill_a;
 }
 """
 
@@ -132,10 +126,8 @@ def _handle_shader_create_info():
     iface.smooth('VEC2', "handleUV")
     info = gpu.types.GPUShaderCreateInfo()
     info.push_constant('VEC4', "handle_fill")
-    info.push_constant('VEC4', "handle_line")
     info.push_constant('FLOAT', "handle_shape")
     info.push_constant('FLOAT', "handle_radius")
-    info.push_constant('FLOAT', "handle_stroke")
     info.vertex_in(0, 'VEC2', "pos")
     info.vertex_in(1, 'VEC2', "uv")
     info.vertex_out(iface)
@@ -169,24 +161,32 @@ def _draw_poly(shader, mode, points, color):
     batch.draw(shader)
 
 
-def _draw_sdf_knob(cx, cy, pixel_radius, region_size, shape, fill, line):
+def _oriented_quad(cx, cy, half, rotation):
+    cosine, sine = math.cos(rotation), math.sin(rotation)
+    local = ((-half, -half), (half, -half), (half, half), (-half, half))
+    uv = ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
+    corners = []
+    for lx, ly in local:
+        corners.append((cx + cosine * lx - sine * ly,
+                        cy + sine * lx + cosine * ly))
+    return corners, uv
+
+
+def _draw_sdf_knob(cx, cy, pixel_radius, region_size, shape, fill,
+                   rotation=0.0):
     shader = _ensure_handle_shader()
     if shader is None:
         return
     from gpu_extras.batch import batch_for_shader
     width, height = region_size
     half = pixel_radius + _HANDLE_PAD
-    corners = ((cx - half, cy - half), (cx + half, cy - half),
-               (cx + half, cy + half), (cx - half, cy + half))
+    corners, uv = _oriented_quad(cx, cy, half, rotation)
     ndc = [_px_to_ndc(x, y, width, height) for x, y in corners]
-    uv = ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
     batch = batch_for_shader(shader, "TRI_FAN", {"pos": ndc, "uv": uv})
     shader.bind()
     shader.uniform_float("handle_fill", fill)
-    shader.uniform_float("handle_line", line)
     shader.uniform_float("handle_shape", shape)
     shader.uniform_float("handle_radius", pixel_radius / half)
-    shader.uniform_float("handle_stroke", 1.75 / half)
     batch.draw(shader)
 
 
@@ -283,16 +283,16 @@ def _draw_stencil_handles(settings, region_size):
         if name == "rotate":
             _draw_rotate_hints(shader, x, y)
             _draw_sdf_knob(x, y, _ROTATE_RADIUS, region_size, 0.0,
-                           _ROTATE_FILL, _ROTATE_LINE)
+                           _ROTATE_FILL)
             continue
         _draw_scale_hints(shader, (x, y), _scale_hint_axes(name, rotation))
         _draw_sdf_knob(x, y, _SCALE_HALF, region_size, 1.0,
-                       _SCALE_FILL, _SCALE_LINE)
+                       _SCALE_FILL, rotation)
     top = next((pos for name, pos in handles if name == "scale_t"), None)
     rotate = next((pos for name, pos in handles if name == "rotate"), None)
     if top is not None and rotate is not None:
         _draw_poly(shader, "TRIS", _capsule_tris(top, rotate, 3.0),
-                   _ROTATE_LINE)
+                   _ROTATE_FILL)
 
 
 def draw_brush_reticle(session, inspect_active):

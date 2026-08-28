@@ -200,6 +200,17 @@ try:
     check("planar reset restores RNA placement defaults",
           position == (0.5, 0.5) and scale == (0.35, 0.35)
           and abs(rotation) < 1e-12)
+    from impasto.gpu import overlays
+    unrotated, _uv = overlays._oriented_quad(0.0, 0.0, 10.0, 0.0)
+    check("scale knob is a sharp axis-aligned square at zero rotation",
+          tuple(unrotated) == ((-10.0, -10.0), (10.0, -10.0),
+                               (10.0, 10.0), (-10.0, 10.0)),
+          repr(unrotated))
+    turned, _uv = overlays._oriented_quad(0.0, 0.0, 10.0, math.pi * 0.5)
+    check("scale knob follows stencil rotation",
+          all(abs(a - b) < 1e-6 for a, b in zip(turned[0], (10.0, -10.0)))
+          and all(abs(a - b) < 1e-6 for a, b in zip(turned[1], (10.0, 10.0))),
+          repr(turned))
     brush_quad = gpu_engine.stencil_preview_quad(
         (800, 600), (100.0, 120.0), 20.0, {
             "stencil_enabled": True, "stencil_image_name": mask.name,
