@@ -807,20 +807,15 @@ def main():
           and "uv_island_overlay_opacity" in draw_src
           and "uv_island_overlay_density_opacity" in draw_src)
 
-    # Back-face culling: unconditional 'BACK' for every overlay draw
-    # (both modes) — the overlay paints only camera-facing surfaces, so
-    # back faces of open/thin geometry no longer bleed through, and a
-    # flipped-normal face vanishes (deliberate diagnostic). The call
-    # must sit INSIDE the state guard: the guard audit above already
-    # fails on any unguarded gpu.state set; this additionally pins the
-    # specific call, its unconditional argument, and its guard span.
-    check("draw sets unconditional BACK culling (no mode-conditional "
-          "'NONE' left in the draw path)",
-          "face_culling_set('BACK')" in draw_src
-          and "face_culling_set('NONE')" not in draw_src)
+    # Culling is selected from cached mesh winding composed with the live
+    # object transform determinant.  Open/ambiguous meshes draw two-sided.
+    check("draw selects determinant- and mesh-aware culling",
+          "_face_culling_mode(obj.matrix_world" in draw_src
+          and "_state.mesh_orientation" in draw_src)
     mod_lines = inspect.getsource(overlay).splitlines()
     cull_lines = [i + 1 for i, ln in enumerate(mod_lines)
-                  if "face_culling_set('BACK')" in ln]
+                  if "gpu.state.face_culling_set(" in ln
+                  and "'NONE'" not in ln]
     check("the culling call sits inside a _gpu_state_restored block",
           len(cull_lines) == 1
           and any(a <= cull_lines[0] <= b for a, b in guard_spans))

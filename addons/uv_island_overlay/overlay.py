@@ -44,10 +44,10 @@ Opacity + culling (v1.3.1):
   constant (the fragment stages ignore the baked vertex alpha), so the
   sliders are live with zero rebuild. Defaults: ISLANDS 0.4 (color
   wash), DENSITY 0.9 (near-opaque paint).
-- Both modes draw with back-face culling ('BACK'): the overlay paints
-  only camera-facing surfaces, so back faces of open/thin geometry no
-  longer bleed through. Flipped-normal faces vanish from the overlay —
-  a deliberate diagnostic (those faces misbehave in baking too).
+- Both modes draw with handedness-aware face culling: normally 'BACK',
+  but 'FRONT' when either a closed shell or its object-to-world transform
+  reverses winding. Open, non-manifold, disconnected, or mixed-winding
+  geometry is drawn two-sided because it has no reliable global polarity.
 
 Combined mode (v1.4.0, the new default):
 - 'COMBINED' — island colors AND the texel-density checker at once:
@@ -222,6 +222,7 @@ class _State:
     densities = None       # per-island densities (checker modes only)
     median_density = None  # unitless median (checker modes only)
     no_uvs = False         # checker mode on a mesh with no UV layer
+    mesh_orientation = 0   # +1/-1 closed winding; 0 means cull neither
     batch = None           # gpu batch (lazily built, viewport only)
     shader = None
     density_shader = None  # checker shader (DENSITY + COMBINED, lazy)
@@ -361,6 +362,64 @@ def build_geometry(obj, source='UV'):
     also receive the SEAM-state checksum."""
     coords, colors, count, _checksum = _build(obj, source)
     return coords, colors, count
+
+
+def _mesh_orientation(obj):
+    """Return +1/-1 for a consistently wound closed mesh, else 0.
+
+    This topology walk is intentionally a rebuild-time operation.  Clean
+    draw frames consume only the cached result, while object transform
+    handedness remains cheap to evaluate live in :func:`_draw`.
+    """
+    import bmesh
+
+    if obj.mode == 'EDIT':
+        bm = bmesh.from_edit_mesh(obj.data)
+        owned = False
+    else:
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        owned = True
+    try:
+        if not bm.faces:
+            return 0
+        # A reliable inside/outside sign requires a closed 2-manifold, and
+        # adjacent faces must traverse their shared edge in opposite
+        # directions.  Reject boundaries, non-manifold edges, and local
+        # winding disagreement instead of hiding an arbitrary side.
+        for edge in bm.edges:
+            loops = edge.link_loops
+            if len(loops) != 2 or loops[0].vert is loops[1].vert:
+                return 0
+        # Treat multiple disconnected shells as ambiguous: their winding
+        # signs can differ, so a single GPU culling mode cannot represent
+        # them reliably without maintaining separate batches.
+        first_face = next(iter(bm.faces))
+        pending = [first_face]
+        connected = {first_face}
+        while pending:
+            face = pending.pop()
+            for edge in face.edges:
+                for neighbor in edge.link_faces:
+                    if neighbor not in connected:
+                        connected.add(neighbor)
+                        pending.append(neighbor)
+        if len(connected) != len(bm.faces):
+            return 0
+        volume = bm.calc_volume(signed=True)
+        # Degenerate closed shells have no stable orientation.  Scale the
+        # threshold to the mesh bounds so tiny but valid meshes still work.
+        xs = [vert.co.x for vert in bm.verts]
+        ys = [vert.co.y for vert in bm.verts]
+        zs = [vert.co.z for vert in bm.verts]
+        extent = max(max(xs) - min(xs), max(ys) - min(ys),
+                     max(zs) - min(zs))
+        if abs(volume) <= max(extent ** 3, 1.0) * 1.0e-12:
+            return 0
+        return 1 if volume > 0.0 else -1
+    finally:
+        if owned:
+            bm.free()
 
 
 def _build(obj, source):
@@ -1005,6 +1064,7 @@ def disable():
     _state.densities = None
     _state.median_density = None
     _state.no_uvs = False
+    _state.mesh_orientation = 0
     _state.batch = None
     _state.last_draw_error = None
     _tag_redraw_view3d()
@@ -1026,6 +1086,7 @@ def refresh(context):
             _state.densities = None
             _state.median_density = None
             _state.no_uvs = False
+            _state.mesh_orientation = 0
             _state.batch = None
             return False
         _state.object_name = obj.name
@@ -1043,6 +1104,7 @@ def refresh(context):
         else:
             coords, colors, count, checksum = _build(obj, _state.source)
             uvs, densities, median, no_uvs = None, None, None, False
+        mesh_orientation = _mesh_orientation(obj)
     except Exception:
         # refresh() is user/handler triggered (never per-frame), so a
         # failure here can afford to be loud every time.
@@ -1051,12 +1113,14 @@ def refresh(context):
         traceback.print_exc()
         coords, colors, count, checksum = None, None, 0, None
         uvs, densities, median, no_uvs = None, None, None, False
+        mesh_orientation = 0
     _state.coords = coords
     _state.colors = colors
     _state.uvs = uvs
     _state.densities = densities
     _state.median_density = median
     _state.no_uvs = no_uvs
+    _state.mesh_orientation = mesh_orientation
     _state.island_count = count
     _state.seam_checksum = checksum
     _state.batch = None      # rebuild from the new data at next draw
@@ -1151,6 +1215,28 @@ def _create_density_shader():
     return gpu.shader.create_from_info(_density_shader_create_info())
 
 
+def _face_culling_mode(matrix_world, mesh_orientation=1):
+    """Return the culling polarity for an object's effective winding.
+
+    Raster face orientation is determined after the object-to-world
+    transform.  A negative linear determinant reverses the triangle soup's
+    winding, so culling its FRONT faces preserves the same visible,
+    normal-facing surface that BACK culling selects for an ordinary
+    transform.
+
+    ``mesh_orientation`` composes a cached mesh-space orientation with the
+    transform: +1 is the usual winding, -1 is globally reversed, and 0
+    requests two-sided drawing for geometry where no reliable global
+    orientation exists (for example an open or mixed-winding mesh).
+    """
+    if mesh_orientation == 0:
+        return 'NONE'
+    determinant = matrix_world.to_3x3().determinant()
+    if abs(determinant) <= 1.0e-12:
+        return 'NONE'
+    return 'FRONT' if determinant * mesh_orientation < 0.0 else 'BACK'
+
+
 @contextmanager
 def _gpu_state_restored():
     """Save global gpu state, run the draw block, ALWAYS restore.
@@ -1199,6 +1285,7 @@ def _draw():
                  _state.island_count, _state.densities,
                  _state.median_density, _state.no_uvs) = \
                     _build_density(obj)
+                _state.mesh_orientation = _mesh_orientation(obj)
                 _state.batch = None
                 _state.dirty = False
             elif _state.mode == 'COMBINED' and _state.source != 'SEAM':
@@ -1210,6 +1297,7 @@ def _draw():
                  _state.median_density, _state.no_uvs,
                  _state.seam_checksum) = \
                     _build_combined(obj, _state.source)
+                _state.mesh_orientation = _mesh_orientation(obj)
                 _state.batch = None
                 _state.dirty = False
             elif _state.source == 'SEAM':
@@ -1227,6 +1315,7 @@ def _draw():
                 # cached geometry: rebuild once, not per-frame.
                 _state.coords, _state.colors, _state.island_count = \
                     build_geometry(obj, _state.source)
+                _state.mesh_orientation = _mesh_orientation(obj)
                 _state.batch = None
                 _state.dirty = False
 
@@ -1279,19 +1368,20 @@ def _draw():
         with _gpu_state_restored():
             gpu.state.blend_set('ALPHA')
             gpu.state.depth_test_set('LESS_EQUAL')
-            # Back-face culling (v1.3.1, both modes): the soup's
-            # triangle winding follows the mesh's loop order, which is
-            # consistent with the face normals, so 'BACK' keeps exactly
-            # the camera-facing side of every normal-consistent face.
+            # Face culling (v1.3.1, both modes): the soup's
+            # triangle winding follows the mesh's loop order. The cached
+            # mesh-space orientation and live world-transform determinant
+            # select which polarity keeps the camera-facing shell side.
             # Without it, back faces of open/thin geometry depth-pass
             # their own front faces (the shader's viewer-ward bias) and
             # bleed through, making the overlay look translucent even
-            # at high opacity. Side effect, doubling as a diagnostic: a
-            # flipped-normal face disappears from the overlay — the
-            # same faces that misbehave in baking/export. The guard's
+            # at high opacity. Geometry without a reliable global winding
+            # falls back to 'NONE' so its preview remains complete. The guard's
             # finally-clause restores the documented default 'NONE'
             # (no face_culling_get exists on 5.1.2).
-            gpu.state.face_culling_set('BACK')
+            gpu.state.face_culling_set(
+                _face_culling_mode(obj.matrix_world,
+                                   _state.mesh_orientation))
             with gpu.matrix.push_pop():
                 gpu.matrix.multiply_matrix(obj.matrix_world)
                 shader.bind()

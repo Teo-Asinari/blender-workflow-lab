@@ -39,6 +39,7 @@ status=0
 run_one "$TESTS_DIR/test_islands.py" "ISLANDS_TESTS_PASSED" || status=1
 run_one "$TESTS_DIR/test_density.py" "DENSITY_TESTS_PASSED" || status=1
 run_one "$TESTS_DIR/test_health.py" "HEALTH_TESTS_PASSED" || status=1
+run_one "$TESTS_DIR/test_culling.py" "CULLING_TESTS_PASSED" || status=1
 run_one "$TESTS_DIR/test_combined.py" "COMBINED_TESTS_PASSED" || status=1
 run_one "$TESTS_DIR/test_register.py" "REGISTER_TESTS_PASSED" || status=1
 

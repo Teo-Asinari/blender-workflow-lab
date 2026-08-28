@@ -15,8 +15,8 @@ checker scales on the surface, optionally tinted by how far each island
 deviates from the mesh's median density. Since v1.3.1 each mode has a
 live **opacity slider** (the density checker is near-opaque by default,
 so it reads like paint instead of a translucent film) and the overlay
-draws with **back-face culling** in both modes: only camera-facing
-surfaces are painted, so nothing bleeds through open or thin geometry.
+draws with **handedness-aware face culling**: mirrored objects and
+closed shells mirrored in Edit Mode keep painting the camera-facing side.
 Since v1.4.0 a third mode — **Islands + Density**, the new default —
 shows both at once: the texel-density checker multiplied by each
 island's identity color, so **hue reads island membership while
@@ -306,7 +306,7 @@ suite probes this empirically (saves a file with mode Island Colors,
 changes the session value, reopens the file: the saved value does not
 come back).
 
-## Opacity and back-face culling (v1.3.1)
+## Opacity and handedness-aware culling (v1.3.1, updated v1.5.2)
 
 All modes have an **opacity slider** (in both panels): **Tint
 Opacity** in Island Colors mode (default 0.4 — the classic translucent
@@ -323,9 +323,12 @@ probed-on-5.1.2 mechanism as Checker Size), so dragging either slider
 updates live — no geometry or batch rebuild, ever. The fragment stages
 take alpha from this uniform and ignore the baked per-vertex alpha.
 
-The overlay also draws with **back-face culling**
-(`gpu.state.face_culling_set('BACK')`, inside the state-restore guard)
-in **both modes**: only camera-facing surfaces are painted. Previously
+The overlay uses **handedness-aware face culling** inside the GPU-state
+restore guard. A normal closed shell uses `BACK`; an odd negative object
+scale or a globally reversed closed mesh swaps the polarity to `FRONT`, and
+both reversals together cancel. Open, non-manifold, disconnected, mixed-
+winding, degenerate, and singularly transformed meshes use `NONE`, because
+one global culling polarity cannot represent them reliably. Previously
 culling was off, and because the overlay depth-passes its own surface
 by a tiny viewer-ward bias, the *back* faces of open or thin geometry
 showed through the front — which made density mode look translucent
@@ -334,12 +337,10 @@ through-shell look on open meshes. The soup's triangle winding follows
 the mesh's loop order, which is consistent with the face normals, so on
 a normal-consistent mesh exactly the front side of every face is drawn.
 
-**Flipped-normals note:** a face whose normal points away from the
-camera-facing side — i.e. flipped relative to its neighbors — is culled
-and **vanishes from the overlay**. That is expected, and useful as a
-diagnostic: those are the same faces that misbehave in baking and
-export. Use *Mesh > Normals > Recalculate Outside* (or Face
-Orientation overlay) to fix them.
+The mesh topology and signed-volume orientation are computed only during a
+geometry rebuild and cached; clean draw frames only evaluate the object's
+3×3 transform determinant. This covers unapplied Scale X = -1 and a closed
+shell mirrored with Ctrl+M without adding a per-frame topology walk.
 
 ## How it draws (v1.2.0: crack-free depth-biased overlay)
 
@@ -430,12 +431,8 @@ structurally.
 - The tint sits exactly *on* the surface and wins the depth test by a
   tiny viewer-ward bias (see *How it draws*); the bias is far too small
   for the overlay to show through *other* geometry in front of it.
-  Since v1.3.1 the overlay draws with back-face culling in both modes,
-  so it paints **only camera-facing surfaces**: viewed from inside or
-  behind an open shell you see no overlay at all, and a
-  **flipped-normal face vanishes** from the overlay in both modes —
-  expected, and a useful diagnostic (the same faces misbehave in
-  baking; see *Opacity and back-face culling*).
+  Closed, consistently wound shells paint only their camera-facing side.
+  Ambiguous/open geometry draws two-sided so the preview stays complete.
 - UV-editor-only edits may not trigger the auto-refresh hook; use the
   manual **Refresh** button after re-unwrapping if in doubt.
 - SEAM source can only see seams: charts split by Smart UV Project or
@@ -503,9 +500,8 @@ two opacity properties (0..1 factors, defaults 0.4/0.9), the
 `overlay_opacity` push constant in both create-infos and fragment
 stages, that an opacity change is uniform-only (no dirty flag, no
 rebuild — same assertion style as the checker-size test), and — via the
-AST guard audit plus a targeted span check — that the unconditional
-`face_culling_set('BACK')` call sits inside the `_gpu_state_restored`
-guard, whose finally-clause restores the documented default `'NONE'`.
+AST guard audit plus a targeted span check — that the dynamic culling call
+sits inside `_gpu_state_restored`, whose finally-clause restores `'NONE'`.
 For v1.4.0, `test_combined.py` covers the COMBINED mode end to end:
 the enum gained COMBINED and its default flipped (plus an empirical
 save/reopen probe that WM property values are never restored from
@@ -535,9 +531,8 @@ v1.2.0 (Island Colors mode):
    shimmer** against the surface, near or far.
 3. Look along a silhouette edge: the overlay must **not bleed** around
    the mesh's outline onto the background or geometry behind it.
-4. View an open (single-sided) mesh from the back: since v1.3.1 the
-   overlay is back-face culled, so you must see **no tint at all** from
-   inside/behind the shell (see Limitations).
+4. View an open (single-sided) mesh from both sides: its ambiguous global
+   orientation uses two-sided drawing, so the tint remains complete.
 5. In Edit Mode, wireframe/seam/selection cage overlays must stay
    readable on top of the tint.
 6. If the shader ever failed to compile, both panels would show the
@@ -577,14 +572,12 @@ v1.3.1 (opacity + culling):
     (islands mode): both must update **live while dragging** with no
     rebuild hitch (they are push-constant uniforms, like Checker Size),
     from fully invisible at 0 to fully opaque at 1.
-15. On an **open mesh** (e.g. a plane or an open cylinder) in density
-    mode, orbit around it: the checker must never bleed through from
-    the far/interior walls — from the back side of an open shell the
-    overlay vanishes entirely (both modes).
-16. Flip one face's normals (*Mesh > Normals > Flip* on a selected
-    face): that face must **disappear from the overlay** in both modes
-    while the rest keeps drawing — the documented flipped-normals
-    diagnostic. Recalculate Outside brings it back.
+15. Set a closed cube's object Scale X to -1: its overlay must remain on
+    the same visible shell side. Repeat with Ctrl+M, X in Edit Mode; the
+    result must also preview correctly. Applying both mirrors must compose
+    back to ordinary BACK culling.
+16. Open/non-manifold or locally mixed-winding geometry must remain fully
+    visible via the two-sided fallback.
 17. Islands mode at the default Tint Opacity (0.4) must look exactly
     like v1.3.0 from the front.
 
