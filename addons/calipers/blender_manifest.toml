@@ -1,0 +1,11 @@
+schema_version = "1.0.0"
+id = "calipers"
+version = "1.2.0"
+name = "Calipers"
+tagline = "Scale-aware voxel remesh preview and safety"
+maintainer = "Teo Asinari"
+type = "add-on"
+tags = ["Mesh"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-2.0-or-later"]
+website = "https://github.com/Teo-Asinari/blender-workflow-lab"

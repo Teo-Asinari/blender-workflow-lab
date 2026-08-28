@@ -1,0 +1,11 @@
+schema_version = "1.0.0"
+id = "sculpt_stroke_recorder"
+version = "0.1.0"
+name = "Sculpt Stroke Recorder"
+tagline = "Experimental native sculpt stroke record and replay"
+maintainer = "Teo Asinari"
+type = "add-on"
+tags = ["Sculpt"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-2.0-or-later"]
+website = "https://github.com/Teo-Asinari/blender-workflow-lab"

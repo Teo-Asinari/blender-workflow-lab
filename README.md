@@ -9,10 +9,22 @@ contributions where it cannot.
 
 ## Add-ons
 
-All add-ons are tested against **Blender 5.1.2** and ship with test suites that run
-against a real Blender binary, and install by copying the folder (minus
-`tests/`) into your `scripts/addons/` directory. See each add-on's README for
-usage, limitations, and interactive acceptance checks.
+All add-ons are tested against **Blender 5.1.2** and ship with test suites that
+run against a real Blender binary. See each add-on's README for usage,
+limitations, and interactive acceptance checks.
+
+## Install
+
+**Install from Disk** is the supported user path:
+
+1. Download a versioned ZIP from
+   [GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+   (for example `impasto-0.15.31.zip`).
+2. In Blender: **Edit > Preferences > Add-ons > Install from Disk**.
+3. Enable the add-on.
+
+Copying `addons/<name>/` (minus `tests/`) into `scripts/addons/` remains a
+developer option.
 
 ## In use
 
@@ -196,42 +208,40 @@ layered normals, and GPU multi-channel Paint/Erase workflow are usable. Its GPU
 path remains under active qualification—especially 8K, complex mixed-UV stack
 previews, sparse undo capture, and Soften/Smear seam behavior.
 
-## Distribution roadmap
+## Distribution
 
-The add-ons currently use Blender's legacy add-on packaging and are installed
-from their source folders. Making them easier to install is primarily packaging
-work rather than a redesign. The planned sequence is:
+Users install from GitHub Release ZIPs via **Install from Disk**. Each add-on
+ships a `blender_manifest.toml` (Blender 4.2+ extensions schema) and a
+self-contained `LICENSE` (GPL-2.0-or-later).
 
-1. Publish a versioned, installable ZIP for each add-on through GitHub Releases.
-2. Add `blender_manifest.toml`, license metadata, and package exclusions.
-3. Test every built ZIP using Blender's **Install from Disk** workflow.
-4. Submit the stable add-ons to the Blender Extensions platform for review.
+Build the ZIPs locally with:
 
-Calipers, Kiln, and UV Island Overlay should require only straightforward
-packaging. Seam Path Tool needs additional care around its optional SciPy
-acceleration and documented fallback behavior. Impasto can be packaged in the
-same way, but should initially be distributed as experimental/beta software and
-receive extra validation of the packaged GPU workflow.
+```
+python scripts/package_addons.py
+python scripts/package_addons.py impasto
+```
 
-GitHub Releases are the immediate priority: they provide a one-click download
-without waiting for Blender Extensions moderation, and the resulting packages
-can then form the basis of the official submissions.
+Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
+`bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
+`uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
+`impasto-0.15.31.zip`, `sculpt_stroke_recorder-0.1.0.zip`. Each ZIP has the
+add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
+Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
+Python, `assets/`, `blender_manifest.toml`, `LICENSE`, and `README.md` are
+included. Packaging does not require SciPy; Seam Path Tool's optional SciPy
+extra remains a user-side install.
 
-Queued next (reduce install friction before Extensions review):
+### Cutting a GitHub Release
 
-- A packaging script that emits one ZIP per add-on with the folder at archive
-  root (`impasto/__init__.py`, not a nested `addons/` path), excluding
-  `tests/`, `__pycache__/`, and docs that are not needed at runtime.
-- `blender_manifest.toml` plus a LICENSE file in each add-on so Blender 4.2+
-  **Install from Disk** and later Extensions submission work.
-- GitHub Release assets named `impasto-0.15.26.zip` (and peers) so a user
-  downloads a ZIP and installs it in Blender with no clone or copy step.
-- Document **Edit > Preferences > Add-ons > Install from Disk** in the root
-  README as the supported path; keep source-folder copy as a developer option.
+Push a git tag matching `v*` (for example `v2026.08.28`) to run
+`.github/workflows/package-addons.yml`. The workflow builds every add-on ZIP
+and attaches them as release assets. `workflow_dispatch` builds the same ZIPs
+as CI artifacts without creating a release. Do not push a tag until the
+add-on versions in `bl_info` are the ones you want on the Release.
 
-Stable first: Calipers, Kiln, UV Island Overlay. Then Seam Path Tool (document
-the optional SciPy extra). Impasto and Sculpt Stroke Recorder as labeled
-experimental/beta.
+Submitting stable add-ons to the [Blender Extensions](https://extensions.blender.org/)
+platform is a later step (Calipers, Kiln, UV Island Overlay first, then Seam
+Path Tool). Impasto and Sculpt Stroke Recorder stay labeled experimental.
 
 ## License
 

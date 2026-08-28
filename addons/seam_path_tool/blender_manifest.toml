@@ -1,0 +1,11 @@
+schema_version = "1.0.0"
+id = "seam_path_tool"
+version = "1.4.0"
+name = "Seam Path Tool"
+tagline = "Interactive shortest-path UV seam marking"
+maintainer = "Teo Asinari"
+type = "add-on"
+tags = ["Mesh"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-2.0-or-later"]
+website = "https://github.com/Teo-Asinari/blender-workflow-lab"

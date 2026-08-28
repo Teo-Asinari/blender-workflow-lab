@@ -3,3 +3,5 @@ __pycache__/
 .ralph/
 .codex/
 .agents/
+dist/
+/*.zip

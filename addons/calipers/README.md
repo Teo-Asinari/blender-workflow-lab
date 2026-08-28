@@ -59,11 +59,12 @@ Modifier-input confidence rules (each case probed on 5.1.2):
 
 ## Install
 
-1. Zip the `calipers` directory (or use it in place from a scripts
-   path).
-2. Blender → Edit → Preferences → Add-ons → Install… → pick the zip.
-3. Enable "Calipers". The panel appears in the 3D Viewport sidebar
-   (`N`) under the **Calipers** tab.
+Download `calipers-1.2.0.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Calipers**. The panel appears in the 3D Viewport sidebar (`N`)
+under the **Calipers** tab. Copying or symlinking the `calipers` folder into
+`scripts/addons/` remains a developer option.
 
 `F3` → search also finds the operators ("Calipers: …" entries live in
 the Object menu).

@@ -39,22 +39,12 @@ over the bmesh edge graph.
 
 ## Install
 
-Legacy add-on packaging (`bl_info`) — still fully supported in Blender
-5.1:
-
-1. Zip the `seam_path_tool` folder (the folder itself, so the zip contains
-   `seam_path_tool/__init__.py`).
-2. Blender: `Edit > Preferences > Add-ons > Install from Disk...`, pick the
-   zip.
-3. Enable "Seam Path Tool" in the add-on list.
-
-Alternatively, copy/symlink the `seam_path_tool` folder into your user
-scripts add-on directory (on Windows:
-`%APPDATA%\Blender Foundation\Blender\5.1\scripts\addons\`) and enable it.
-
-Packaging as a 4.2+ *extension* (`blender_manifest.toml`) is future work;
-the legacy path was chosen because it registers cleanly on 5.1.2 and keeps
-the repo layout simple.
+Download `seam_path_tool-1.4.0.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Seam Path Tool**. Copying or symlinking the `seam_path_tool`
+folder into `scripts/addons/` remains a developer option (on Windows:
+`%APPDATA%\Blender Foundation\Blender\5.1\scripts\addons\`).
 
 ## Optional dependency: scipy
 

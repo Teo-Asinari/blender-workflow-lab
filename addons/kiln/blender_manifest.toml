@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+id = "kiln"
+version = "1.2.1"
+name = "Kiln"
+tagline = "Guided high-poly to low-poly normal baking"
+maintainer = "Teo Asinari"
+type = "add-on"
+tags = ["Render"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-2.0-or-later"]
+website = "https://github.com/Teo-Asinari/blender-workflow-lab"
+
+[permissions]
+files = "Save baked normal maps to the textures folder"

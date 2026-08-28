@@ -4,13 +4,21 @@ Records completed native Blender Sculpt Mode strokes without replacing
 Blender's sculpt interaction, then replays a take from the native 3D stroke
 samples. Recordings are stored in the Scene and survive saving the `.blend`.
 
-## Install and use
+## Install
 
-1. Install the `sculpt_stroke_recorder` folder as a Blender add-on.
-2. Select a mesh and enter Sculpt Mode.
-3. Open **3D Viewport > Sidebar (N) > Sculpt Recorder**.
-4. Press **Record New Take**, sculpt normally, then press **Stop Recording**.
-5. Select a take and press **Replay Take**.
+Download `sculpt_stroke_recorder-0.1.0.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Sculpt Stroke Recorder**. This add-on is experimental. Copying
+or symlinking the `sculpt_stroke_recorder` folder into `scripts/addons/`
+remains a developer option.
+
+## Use
+
+1. Select a mesh and enter Sculpt Mode.
+2. Open **3D Viewport > Sidebar (N) > Sculpt Recorder**.
+3. Press **Record New Take**, sculpt normally, then press **Stop Recording**.
+4. Select a take and press **Replay Take**.
 
 Replay is an Undo-enabled operation and applies the recorded 3D paths with the
 currently active sculpt brush. This makes recordings useful immediately while

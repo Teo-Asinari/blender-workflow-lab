@@ -44,15 +44,12 @@ explicit **Select** action changes face selection.
 
 ## Install
 
-Legacy add-on packaging (`bl_info`), works on Blender 4.2+ / 5.x:
-
-1. Zip the `uv_island_overlay` folder (the folder itself, so the zip
-   contains `uv_island_overlay/__init__.py`).
-2. Blender: `Edit > Preferences > Add-ons > Install from Disk…`, pick the
-   zip, enable **UV Island Overlay**.
-
-For development, symlink/copy the folder into your Blender
-`scripts/addons/` directory instead.
+Download `uv_island_overlay-1.5.2.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **UV Island Overlay**. Works on Blender 4.2+ / 5.x. Copying or
+symlinking the `uv_island_overlay` folder into `scripts/addons/` remains a
+developer option.
 
 ## Usage
 

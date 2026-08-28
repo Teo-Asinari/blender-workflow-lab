@@ -39,16 +39,12 @@ traceback or a silently black texture.
 
 ## Install
 
-Legacy add-on packaging (`bl_info`), works on Blender 4.2+ / 5.x
-(probed throughout on 5.1.2):
-
-1. Zip the `kiln` folder (the folder itself, so the zip contains
-   `kiln/__init__.py`).
-2. Blender: `Edit > Preferences > Add-ons > Install from Disk…`, pick
-   the zip, enable **Kiln**.
-
-For development, symlink/copy the folder into your Blender
-`scripts/addons/` directory instead.
+Download `kiln-1.2.1.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Kiln**. Works on Blender 4.2+ / 5.x (probed throughout on
+5.1.2). Copying or symlinking the `kiln` folder into `scripts/addons/`
+remains a developer option.
 
 ## Usage: the three stages
 

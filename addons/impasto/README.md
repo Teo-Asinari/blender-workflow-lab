@@ -123,13 +123,15 @@ not GPU paint-canvas channels.
 
 ## Install
 
-Impasto currently targets Blender 5.1.
+Impasto currently targets Blender 5.1 and is experimental. Download
+`impasto-0.15.31.zip` from
+[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Impasto**. Copying `addons/impasto/` into `scripts/addons/`
+remains a developer option.
 
-1. Copy `addons/impasto/` into Blender's `scripts/addons/` directory, or zip
-   the `impasto` folder so `impasto/__init__.py` is at the archive root.
-2. Enable **Impasto** in Blender's Add-ons preferences.
-3. Select a UV-unwrapped mesh with a node-based material.
-4. Open `3D Viewport > N sidebar > Impasto`.
+Select a UV-unwrapped mesh with a node-based material, then open
+`3D Viewport > N sidebar > Impasto`.
 
 ## Recommended workflow
 

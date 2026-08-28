@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+id = "impasto"
+version = "0.15.31"
+name = "Impasto"
+tagline = "Experimental PBR layer painting"
+maintainer = "Teo Asinari"
+type = "add-on"
+tags = ["Paint"]
+blender_version_min = "5.1.0"
+license = ["SPDX:GPL-2.0-or-later"]
+website = "https://github.com/Teo-Asinari/blender-workflow-lab"
+
+[permissions]
+files = "Load stencil images and export flattened textures"
