@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.28 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.15.29 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.

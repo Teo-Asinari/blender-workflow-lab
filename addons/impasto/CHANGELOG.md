@@ -4,6 +4,14 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.29
+
+- Double Planar Viewport stencil handle size and draw the knobs with
+  anti-aliased signed-distance fills instead of aliased polygons.
+- Recolor scale handles dusty rose and the rotate knob olive, replacing the
+  previous amber/cyan pairing. Function arrows are thick filled strokes.
+- Hit targets grow with the knobs.
+
 ## 0.15.28
 
 - Enlarge Planar Viewport stencil handles and draw filled amber scale boxes

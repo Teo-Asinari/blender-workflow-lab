@@ -83,13 +83,82 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set(prior_blend)
 
 
-_SCALE_FILL = (0.98, 0.72, 0.16, 0.96)
-_SCALE_LINE = (0.45, 0.28, 0.04, 0.95)
-_ROTATE_FILL = (0.22, 0.78, 0.96, 0.96)
-_ROTATE_LINE = (0.06, 0.32, 0.48, 0.95)
-_HINT_COLOR = (0.72, 0.74, 0.76, 0.42)
-_SCALE_HALF = 6.5
-_ROTATE_RADIUS = 7.8
+# Scale vs rotate must stay distinct without toy amber/cyan.
+_SCALE_FILL = (0.62, 0.24, 0.30, 0.96)
+_SCALE_LINE = (0.14, 0.05, 0.07, 0.95)
+_ROTATE_FILL = (0.38, 0.44, 0.30, 0.96)
+_ROTATE_LINE = (0.10, 0.12, 0.08, 0.95)
+_HINT_COLOR = (0.82, 0.83, 0.84, 0.40)
+_SCALE_HALF = 13.0
+_ROTATE_RADIUS = 15.6
+_HANDLE_PAD = 4.0
+_handle_shader = None
+
+HANDLE_VERT_SRC = """
+void main()
+{
+    gl_Position = vec4(pos, 0.0, 1.0);
+    handleUV = uv;
+}
+"""
+
+HANDLE_FRAG_SRC = """
+void main()
+{
+    vec2 p = handleUV;
+    float dist;
+    if (handle_shape < 0.5) {
+        dist = length(p) - handle_radius;
+    } else {
+        float r = handle_radius * 0.28;
+        vec2 q = abs(p) - vec2(handle_radius) + vec2(r);
+        dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    }
+    float aa = max(fwidth(dist), 1.0e-4);
+    float fill_a = 1.0 - smoothstep(-aa, aa, dist);
+    float stroke_a = 1.0 - smoothstep(-aa, aa, abs(dist) - handle_stroke);
+    vec4 color = handle_line * stroke_a;
+    color = mix(color, handle_fill, fill_a);
+    if (color.a < 0.02) {
+        discard;
+    }
+    fragColor = color;
+}
+"""
+
+
+def _handle_shader_create_info():
+    iface = gpu.types.GPUStageInterfaceInfo("impasto_stencil_handle_iface")
+    iface.smooth('VEC2', "handleUV")
+    info = gpu.types.GPUShaderCreateInfo()
+    info.push_constant('VEC4', "handle_fill")
+    info.push_constant('VEC4', "handle_line")
+    info.push_constant('FLOAT', "handle_shape")
+    info.push_constant('FLOAT', "handle_radius")
+    info.push_constant('FLOAT', "handle_stroke")
+    info.vertex_in(0, 'VEC2', "pos")
+    info.vertex_in(1, 'VEC2', "uv")
+    info.vertex_out(iface)
+    info.fragment_out(0, 'VEC4', "fragColor")
+    info.vertex_source(HANDLE_VERT_SRC)
+    info.fragment_source(HANDLE_FRAG_SRC)
+    return info
+
+
+def _ensure_handle_shader():
+    global _handle_shader
+    if _handle_shader is not None:
+        return _handle_shader
+    try:
+        _handle_shader = gpu.shader.create_from_info(_handle_shader_create_info())
+    except Exception:
+        _handle_shader = False
+    return _handle_shader or None
+
+
+def _px_to_ndc(x, y, width, height):
+    return ((x / max(width, 1.0)) * 2.0 - 1.0,
+            (y / max(height, 1.0)) * 2.0 - 1.0)
 
 
 def _draw_poly(shader, mode, points, color):
@@ -100,6 +169,27 @@ def _draw_poly(shader, mode, points, color):
     batch.draw(shader)
 
 
+def _draw_sdf_knob(cx, cy, pixel_radius, region_size, shape, fill, line):
+    shader = _ensure_handle_shader()
+    if shader is None:
+        return
+    from gpu_extras.batch import batch_for_shader
+    width, height = region_size
+    half = pixel_radius + _HANDLE_PAD
+    corners = ((cx - half, cy - half), (cx + half, cy - half),
+               (cx + half, cy + half), (cx - half, cy + half))
+    ndc = [_px_to_ndc(x, y, width, height) for x, y in corners]
+    uv = ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
+    batch = batch_for_shader(shader, "TRI_FAN", {"pos": ndc, "uv": uv})
+    shader.bind()
+    shader.uniform_float("handle_fill", fill)
+    shader.uniform_float("handle_line", line)
+    shader.uniform_float("handle_shape", shape)
+    shader.uniform_float("handle_radius", pixel_radius / half)
+    shader.uniform_float("handle_stroke", 1.75 / half)
+    batch.draw(shader)
+
+
 def _unit(dx, dy):
     length = math.hypot(dx, dy)
     if length < 1e-6:
@@ -107,32 +197,7 @@ def _unit(dx, dy):
     return (dx / length, dy / length)
 
 
-def _disc(cx, cy, radius, segments=28):
-    return [(cx, cy)] + [
-        (cx + math.cos(i * math.tau / segments) * radius,
-         cy + math.sin(i * math.tau / segments) * radius)
-        for i in range(segments + 1)
-    ]
-
-
-def _circle(cx, cy, radius, segments=28):
-    return [(cx + math.cos(i * math.tau / segments) * radius,
-             cy + math.sin(i * math.tau / segments) * radius)
-            for i in range(segments)]
-
-
-def _rounded_square(cx, cy, half):
-    chamfer = half * 0.32
-    inner = half - chamfer
-    return (
-        (cx - inner, cy - half), (cx + inner, cy - half),
-        (cx + half, cy - inner), (cx + half, cy + inner),
-        (cx + inner, cy + half), (cx - inner, cy + half),
-        (cx - half, cy + inner), (cx - half, cy - inner),
-    )
-
-
-def _arrowhead(tip, direction, size=4.2):
+def _arrowhead(tip, direction, size=8.4):
     dx, dy = _unit(*direction)
     px, py = -dy, dx
     back = (tip[0] - dx * size, tip[1] - dy * size)
@@ -143,46 +208,54 @@ def _arrowhead(tip, direction, size=4.2):
     )
 
 
-def _double_arrow_lines(origin, axis, length=11.0):
-    dx, dy = _unit(*axis)
-    p0 = (origin[0] - dx * length, origin[1] - dy * length)
-    p1 = (origin[0] + dx * length, origin[1] + dy * length)
-    return (p0, p1)
+def _capsule_tris(p0, p1, width):
+    dx, dy = _unit(p1[0] - p0[0], p1[1] - p0[1])
+    nx, ny = -dy * width * 0.5, dx * width * 0.5
+    a = (p0[0] + nx, p0[1] + ny)
+    b = (p0[0] - nx, p0[1] - ny)
+    c = (p1[0] - nx, p1[1] - ny)
+    d = (p1[0] + nx, p1[1] + ny)
+    return (a, b, c, a, c, d)
 
 
-def _arc_points(cx, cy, radius, start, end, steps=18):
-    points = []
-    for i in range(steps + 1):
-        t = start + (end - start) * (i / steps)
-        points.append((cx + math.cos(t) * radius, cy + math.sin(t) * radius))
-    return points
-
-
-def _as_lines(points):
-    segments = []
-    for start, end in zip(points, points[1:]):
-        segments.extend((start, end))
-    return segments
+def _thick_arc_tris(cx, cy, radius, width, start, end, steps=36):
+    inner = radius - width * 0.5
+    outer = radius + width * 0.5
+    tris = []
+    for i in range(steps):
+        t0 = start + (end - start) * (i / steps)
+        t1 = start + (end - start) * ((i + 1) / steps)
+        a0 = (cx + math.cos(t0) * inner, cy + math.sin(t0) * inner)
+        b0 = (cx + math.cos(t0) * outer, cy + math.sin(t0) * outer)
+        a1 = (cx + math.cos(t1) * inner, cy + math.sin(t1) * inner)
+        b1 = (cx + math.cos(t1) * outer, cy + math.sin(t1) * outer)
+        tris.extend((a0, b0, b1, a0, b1, a1))
+    return tris
 
 
 def _draw_scale_hints(shader, origin, axes):
     for axis in axes:
-        p0, p1 = _double_arrow_lines(origin, axis, 12.0)
-        _draw_poly(shader, "LINES", (p0, p1), _HINT_COLOR)
-        _draw_poly(shader, "TRIS", _arrowhead(p1, axis), _HINT_COLOR)
-        _draw_poly(shader, "TRIS", _arrowhead(p0, (-axis[0], -axis[1])),
+        dx, dy = _unit(*axis)
+        length = 22.0
+        p0 = (origin[0] - dx * length, origin[1] - dy * length)
+        p1 = (origin[0] + dx * length, origin[1] + dy * length)
+        _draw_poly(shader, "TRIS", _capsule_tris(p0, p1, 3.2), _HINT_COLOR)
+        _draw_poly(shader, "TRIS", _arrowhead(p1, axis, 9.0), _HINT_COLOR)
+        _draw_poly(shader, "TRIS", _arrowhead(p0, (-axis[0], -axis[1]), 9.0),
                    _HINT_COLOR)
 
 
 def _draw_rotate_hints(shader, cx, cy):
-    radius = _ROTATE_RADIUS + 7.5
-    for start, end in ((0.35, 2.2), (0.35 + math.pi, 2.2 + math.pi)):
-        arc = _arc_points(cx, cy, radius, start, end)
-        _draw_poly(shader, "LINES", _as_lines(arc), _HINT_COLOR)
-        tip = arc[-1]
-        prev = arc[-2]
+    radius = _ROTATE_RADIUS + 12.0
+    for start, end in ((0.28, 2.35), (0.28 + math.pi, 2.35 + math.pi)):
+        tris = _thick_arc_tris(cx, cy, radius, 3.4, start, end)
+        _draw_poly(shader, "TRIS", tris, _HINT_COLOR)
+        tip_t = end
+        prev_t = end - 0.12
+        tip = (cx + math.cos(tip_t) * radius, cy + math.sin(tip_t) * radius)
+        prev = (cx + math.cos(prev_t) * radius, cy + math.sin(prev_t) * radius)
         _draw_poly(shader, "TRIS", _arrowhead(tip, (tip[0] - prev[0],
-                                                    tip[1] - prev[1])),
+                                                    tip[1] - prev[1]), 9.0),
                    _HINT_COLOR)
 
 
@@ -206,31 +279,20 @@ def _draw_stencil_handles(settings, region_size):
         return
     rotation = float(settings.get("stencil_rotation", 0.0))
     shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-    try:
-        prior_width = gpu.state.line_width_get()
-    except Exception:
-        prior_width = 1.0
-    gpu.state.line_width_set(1.8)
-    try:
-        for name, (x, y) in handles:
-            if name == "rotate":
-                _draw_rotate_hints(shader, x, y)
-                _draw_poly(shader, "TRI_FAN",
-                           _disc(x, y, _ROTATE_RADIUS), _ROTATE_FILL)
-                _draw_poly(shader, "LINE_LOOP",
-                           _circle(x, y, _ROTATE_RADIUS), _ROTATE_LINE)
-                continue
-            _draw_scale_hints(shader, (x, y),
-                              _scale_hint_axes(name, rotation))
-            square = _rounded_square(x, y, _SCALE_HALF)
-            _draw_poly(shader, "TRI_FAN", square, _SCALE_FILL)
-            _draw_poly(shader, "LINE_LOOP", square, _SCALE_LINE)
-        top = next((pos for name, pos in handles if name == "scale_t"), None)
-        rotate = next((pos for name, pos in handles if name == "rotate"), None)
-        if top is not None and rotate is not None:
-            _draw_poly(shader, "LINES", (top, rotate), _ROTATE_LINE)
-    finally:
-        gpu.state.line_width_set(prior_width)
+    for name, (x, y) in handles:
+        if name == "rotate":
+            _draw_rotate_hints(shader, x, y)
+            _draw_sdf_knob(x, y, _ROTATE_RADIUS, region_size, 0.0,
+                           _ROTATE_FILL, _ROTATE_LINE)
+            continue
+        _draw_scale_hints(shader, (x, y), _scale_hint_axes(name, rotation))
+        _draw_sdf_knob(x, y, _SCALE_HALF, region_size, 1.0,
+                       _SCALE_FILL, _SCALE_LINE)
+    top = next((pos for name, pos in handles if name == "scale_t"), None)
+    rotate = next((pos for name, pos in handles if name == "rotate"), None)
+    if top is not None and rotate is not None:
+        _draw_poly(shader, "TRIS", _capsule_tris(top, rotate, 3.0),
+                   _ROTATE_LINE)
 
 
 def draw_brush_reticle(session, inspect_active):
