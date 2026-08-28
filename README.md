@@ -28,6 +28,14 @@ developer option.
 
 ## In use
 
+### [Dropbox Blend Pause](addons/dropbox_blend_pause/) — v0.1.0
+
+Quits the Dropbox desktop client while a watched project folder is open in
+Blender (default `Dropbox\My Sculptures\2026-02-16_#1`), then starts Dropbox
+again when you leave that folder. Workaround for Blender's `@` save-backup
+failure when Dropbox locks texture files. Not a per-folder pause: the whole
+client stops. Does not use Dropbox ignore (that would delete the cloud copy).
+
 ### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.1.0
 
 Records completed native Sculpt Mode strokes—including 3D locations, pressure,
