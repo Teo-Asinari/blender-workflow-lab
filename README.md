@@ -9,12 +9,20 @@ contributions where it cannot.
 
 ## Add-ons
 
-All five are tested against **Blender 5.1.2**, ship with test suites that run
+All add-ons are tested against **Blender 5.1.2** and ship with test suites that run
 against a real Blender binary, and install by copying the folder (minus
 `tests/`) into your `scripts/addons/` directory. See each add-on's README for
 usage, limitations, and interactive acceptance checks.
 
 ## In use
+
+### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.1.0
+
+Records completed native Sculpt Mode strokes—including 3D locations, pressure,
+radius, tilt, and timing—without replacing Blender's sculpt interaction. Takes
+are stored in the `.blend` and can be replayed with the current brush, providing
+a deterministic workflow tool and the structured demonstrations needed for a
+future imitation-learning sculpt assistant.
 
 ### UV Island Overlay
 
@@ -34,7 +42,7 @@ usage, limitations, and interactive acceptance checks.
 
 Interactive shortest-path UV seam marking in Edit Mode: click points on the mesh, each click commits a seam along the shortest path from the last anchor, with a live preview of the candidate path under the cursor. Occlusion-aware vertex picking, erase mode, per-segment undo, on-screen help panel. Fast on large meshes: commits reuse the previewed path (no pathfinding on click), and the hover path tree solves at C speed via an optional scipy dependency (pure-Python fallback included).
 
-### [UV Island Overlay](addons/uv_island_overlay/) — v1.5.1
+### [UV Island Overlay](addons/uv_island_overlay/) — v1.5.2
 
 Viewport overlay that colors each UV island distinctly and/or drapes a texel-density checkerboard through the actual UVs — the default combined mode shows both at once (hue = island, checker scale = density). Islands can be computed from true UV connectivity or *predicted from seams live as you mark them*, no unwrap needed. Per-island density stats, deviation tint, live opacity controls. Drawn as a GPU overlay; the mesh is never modified.
 
@@ -208,6 +216,22 @@ receive extra validation of the packaged GPU workflow.
 GitHub Releases are the immediate priority: they provide a one-click download
 without waiting for Blender Extensions moderation, and the resulting packages
 can then form the basis of the official submissions.
+
+Queued next (reduce install friction before Extensions review):
+
+- A packaging script that emits one ZIP per add-on with the folder at archive
+  root (`impasto/__init__.py`, not a nested `addons/` path), excluding
+  `tests/`, `__pycache__/`, and docs that are not needed at runtime.
+- `blender_manifest.toml` plus a LICENSE file in each add-on so Blender 4.2+
+  **Install from Disk** and later Extensions submission work.
+- GitHub Release assets named `impasto-0.15.26.zip` (and peers) so a user
+  downloads a ZIP and installs it in Blender with no clone or copy step.
+- Document **Edit > Preferences > Add-ons > Install from Disk** in the root
+  README as the supported path; keep source-folder copy as a developer option.
+
+Stable first: Calipers, Kiln, UV Island Overlay. Then Seam Path Tool (document
+the optional SciPy extra). Impasto and Sculpt Stroke Recorder as labeled
+experimental/beta.
 
 ## License
 
