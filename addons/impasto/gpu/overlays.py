@@ -83,6 +83,120 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set(prior_blend)
 
 
+_SCALE_FILL = (0.98, 0.72, 0.16, 0.96)
+_SCALE_LINE = (0.45, 0.28, 0.04, 0.95)
+_ROTATE_FILL = (0.22, 0.78, 0.96, 0.96)
+_ROTATE_LINE = (0.06, 0.32, 0.48, 0.95)
+_HINT_COLOR = (0.72, 0.74, 0.76, 0.42)
+_SCALE_HALF = 6.5
+_ROTATE_RADIUS = 7.8
+
+
+def _draw_poly(shader, mode, points, color):
+    from gpu_extras.batch import batch_for_shader
+    batch = batch_for_shader(shader, mode, {"pos": points})
+    shader.bind()
+    shader.uniform_float("color", color)
+    batch.draw(shader)
+
+
+def _unit(dx, dy):
+    length = math.hypot(dx, dy)
+    if length < 1e-6:
+        return (1.0, 0.0)
+    return (dx / length, dy / length)
+
+
+def _disc(cx, cy, radius, segments=28):
+    return [(cx, cy)] + [
+        (cx + math.cos(i * math.tau / segments) * radius,
+         cy + math.sin(i * math.tau / segments) * radius)
+        for i in range(segments + 1)
+    ]
+
+
+def _circle(cx, cy, radius, segments=28):
+    return [(cx + math.cos(i * math.tau / segments) * radius,
+             cy + math.sin(i * math.tau / segments) * radius)
+            for i in range(segments)]
+
+
+def _rounded_square(cx, cy, half):
+    chamfer = half * 0.32
+    inner = half - chamfer
+    return (
+        (cx - inner, cy - half), (cx + inner, cy - half),
+        (cx + half, cy - inner), (cx + half, cy + inner),
+        (cx + inner, cy + half), (cx - inner, cy + half),
+        (cx - half, cy + inner), (cx - half, cy - inner),
+    )
+
+
+def _arrowhead(tip, direction, size=4.2):
+    dx, dy = _unit(*direction)
+    px, py = -dy, dx
+    back = (tip[0] - dx * size, tip[1] - dy * size)
+    return (
+        tip,
+        (back[0] + px * size * 0.55, back[1] + py * size * 0.55),
+        (back[0] - px * size * 0.55, back[1] - py * size * 0.55),
+    )
+
+
+def _double_arrow_lines(origin, axis, length=11.0):
+    dx, dy = _unit(*axis)
+    p0 = (origin[0] - dx * length, origin[1] - dy * length)
+    p1 = (origin[0] + dx * length, origin[1] + dy * length)
+    return (p0, p1)
+
+
+def _arc_points(cx, cy, radius, start, end, steps=18):
+    points = []
+    for i in range(steps + 1):
+        t = start + (end - start) * (i / steps)
+        points.append((cx + math.cos(t) * radius, cy + math.sin(t) * radius))
+    return points
+
+
+def _as_lines(points):
+    segments = []
+    for start, end in zip(points, points[1:]):
+        segments.extend((start, end))
+    return segments
+
+
+def _draw_scale_hints(shader, origin, axes):
+    for axis in axes:
+        p0, p1 = _double_arrow_lines(origin, axis, 12.0)
+        _draw_poly(shader, "LINES", (p0, p1), _HINT_COLOR)
+        _draw_poly(shader, "TRIS", _arrowhead(p1, axis), _HINT_COLOR)
+        _draw_poly(shader, "TRIS", _arrowhead(p0, (-axis[0], -axis[1])),
+                   _HINT_COLOR)
+
+
+def _draw_rotate_hints(shader, cx, cy):
+    radius = _ROTATE_RADIUS + 7.5
+    for start, end in ((0.35, 2.2), (0.35 + math.pi, 2.2 + math.pi)):
+        arc = _arc_points(cx, cy, radius, start, end)
+        _draw_poly(shader, "LINES", _as_lines(arc), _HINT_COLOR)
+        tip = arc[-1]
+        prev = arc[-2]
+        _draw_poly(shader, "TRIS", _arrowhead(tip, (tip[0] - prev[0],
+                                                    tip[1] - prev[1])),
+                   _HINT_COLOR)
+
+
+def _scale_hint_axes(name, rotation):
+    cosine, sine = math.cos(rotation), math.sin(rotation)
+    local_x = (cosine, sine)
+    local_y = (-sine, cosine)
+    if name in ("scale_l", "scale_r"):
+        return (local_x,)
+    if name in ("scale_t", "scale_b"):
+        return (local_y,)
+    return (local_x, local_y)
+
+
 def _draw_stencil_handles(settings, region_size):
     """Corner/edge scale boxes and a rotate knob in the view plane."""
     if settings.get("stencil_projection") != "VIEW_STENCIL":
@@ -90,36 +204,33 @@ def _draw_stencil_handles(settings, region_size):
     handles = stencil.planar_handle_points(region_size, settings)
     if not handles:
         return
-    from gpu_extras.batch import batch_for_shader
+    rotation = float(settings.get("stencil_rotation", 0.0))
     shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-    half = 5.0
-    scale_color = (1.0, 0.92, 0.35, 0.95)
-    rotate_color = (0.45, 0.85, 1.0, 0.95)
-    for name, (x, y) in handles:
-        if name == "rotate":
-            segments = 16
-            circle = [(x + math.cos(i * math.tau / segments) * 6.0,
-                       y + math.sin(i * math.tau / segments) * 6.0)
-                      for i in range(segments)]
-            batch = batch_for_shader(shader, "LINE_LOOP", {"pos": circle})
-            shader.bind()
-            shader.uniform_float("color", rotate_color)
-            batch.draw(shader)
-            continue
-        box = ((x - half, y - half), (x + half, y - half),
-               (x + half, y + half), (x - half, y + half))
-        batch = batch_for_shader(shader, "TRI_FAN", {"pos": box})
-        shader.bind()
-        shader.uniform_float("color", scale_color)
-        batch.draw(shader)
-    # Line from the top edge to the rotate knob so the control is obvious.
-    top = next((pos for name, pos in handles if name == "scale_t"), None)
-    rotate = next((pos for name, pos in handles if name == "rotate"), None)
-    if top is not None and rotate is not None:
-        batch = batch_for_shader(shader, "LINES", {"pos": (top, rotate)})
-        shader.bind()
-        shader.uniform_float("color", rotate_color)
-        batch.draw(shader)
+    try:
+        prior_width = gpu.state.line_width_get()
+    except Exception:
+        prior_width = 1.0
+    gpu.state.line_width_set(1.8)
+    try:
+        for name, (x, y) in handles:
+            if name == "rotate":
+                _draw_rotate_hints(shader, x, y)
+                _draw_poly(shader, "TRI_FAN",
+                           _disc(x, y, _ROTATE_RADIUS), _ROTATE_FILL)
+                _draw_poly(shader, "LINE_LOOP",
+                           _circle(x, y, _ROTATE_RADIUS), _ROTATE_LINE)
+                continue
+            _draw_scale_hints(shader, (x, y),
+                              _scale_hint_axes(name, rotation))
+            square = _rounded_square(x, y, _SCALE_HALF)
+            _draw_poly(shader, "TRI_FAN", square, _SCALE_FILL)
+            _draw_poly(shader, "LINE_LOOP", square, _SCALE_LINE)
+        top = next((pos for name, pos in handles if name == "scale_t"), None)
+        rotate = next((pos for name, pos in handles if name == "rotate"), None)
+        if top is not None and rotate is not None:
+            _draw_poly(shader, "LINES", (top, rotate), _ROTATE_LINE)
+    finally:
+        gpu.state.line_width_set(prior_width)
 
 
 def draw_brush_reticle(session, inspect_active):

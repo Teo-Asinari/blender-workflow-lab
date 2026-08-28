@@ -4,6 +4,15 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.28
+
+- Enlarge Planar Viewport stencil handles and draw filled amber scale boxes
+  versus a filled cyan rotate knob, each with a dark outline.
+- Add semi-transparent grey function hints: double arrows on scale handles
+  and circular arrows around the rotate knob.
+- Press `R` during GPU painting to reset Planar Viewport position, scale,
+  and rotation to defaults.
+
 ## 0.15.27
 
 - Add viewport-plane scale and rotate handles for Planar Viewport image

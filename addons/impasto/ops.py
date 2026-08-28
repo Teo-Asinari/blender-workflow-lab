@@ -1656,6 +1656,31 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         layer.brush_stencil_rotation = start.rotation
         self._refresh_stencil_settings()
 
+    def _reset_stencil_transform(self, event):
+        """R restores Planar Viewport position, scale, and rotation."""
+        if event.type != 'R' or event.value != 'PRESS' or event.ctrl \
+                or event.alt or event.shift:
+            return False
+        if gpu_engine.input_paused() or gpu_engine.stroke_active() \
+                or getattr(self, "_stencil_drag", None) is not None:
+            return False
+        if gpu_engine.material_inspect_active() \
+                or gpu_engine.material_inspect_requested():
+            return False
+        layer = self._stencil_layer()
+        if layer is None:
+            return False
+        settings = gpu_stencil_settings(layer)
+        if not settings.active or settings.projection != 'VIEW_STENCIL':
+            return False
+        position, scale, rotation = stencil.default_planar_transform()
+        layer.brush_stencil_position = position
+        layer.brush_stencil_scale = scale
+        layer.brush_stencil_rotation = rotation
+        self._refresh_stencil_settings()
+        self.report({'INFO'}, "Stencil placement reset")
+        return True
+
     def _refresh_preview_lighting(self):
         """Apply sidebar lighting edits without restarting or synchronizing."""
         tree = bpy.data.node_groups.get(self._tree_name)
@@ -1814,6 +1839,8 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
             self._region.tag_redraw()
             return {'RUNNING_MODAL'}
         if self._consume_stencil_transform(context, event):
+            return {'RUNNING_MODAL'}
+        if self._reset_stencil_transform(event):
             return {'RUNNING_MODAL'}
         if etype == 'P' and event.value == 'PRESS':
             if (gpu_engine.material_inspect_active()

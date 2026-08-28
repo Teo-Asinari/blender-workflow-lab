@@ -196,6 +196,10 @@ try:
         (800, 600), stencil.normalized(True, "Tip", 'BRUSH_ALPHA'))
     check("brush-footprint stencils have no view-plane handles",
           brush_handles == ())
+    position, scale, rotation = stencil.default_planar_transform()
+    check("planar reset restores RNA placement defaults",
+          position == (0.5, 0.5) and scale == (0.35, 0.35)
+          and abs(rotation) < 1e-12)
     brush_quad = gpu_engine.stencil_preview_quad(
         (800, 600), (100.0, 120.0), 20.0, {
             "stencil_enabled": True, "stencil_image_name": mask.name,

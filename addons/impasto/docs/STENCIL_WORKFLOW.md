@@ -12,6 +12,9 @@ Two projection modes are available:
   normalized viewport center: `(0.5, 0.5)` is the center. Scale is the image's
   normalized viewport width and height: `(0.5, 0.25)` spans half the viewport
   width and one quarter of its height. Rotation is counter-clockwise.
+  During GPU painting, amber corner/edge handles scale in the view plane and
+  a cyan top knob rotates; `R` restores the default placement. Shift keeps
+  aspect while scaling.
 - **Brush Footprint** centers the image on every GPU dab. Position is irrelevant;
   its independent Brush Scale multiplies the brush diameter on X and Y. Its
   `(1, 1)` default maps the image exactly across the round dab footprint on

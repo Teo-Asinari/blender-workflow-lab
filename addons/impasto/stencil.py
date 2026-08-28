@@ -149,8 +149,17 @@ def image_uv(fragment_px, brush_center_px, brush_radius_px, region_size,
     return uv
 
 
-HANDLE_HIT_PX = 12.0
-ROTATE_OFFSET_PX = 22.0
+HANDLE_HIT_PX = 16.0
+ROTATE_OFFSET_PX = 28.0
+DEFAULT_POSITION = (0.5, 0.5)
+DEFAULT_VIEW_SCALE = (0.35, 0.35)
+DEFAULT_BRUSH_SCALE = (1.0, 1.0)
+DEFAULT_ROTATION = 0.0
+
+
+def default_planar_transform():
+    """RNA defaults for Planar Viewport position, scale, and rotation."""
+    return DEFAULT_POSITION, DEFAULT_VIEW_SCALE, DEFAULT_ROTATION
 _CORNER_HANDLES = (
     ("scale_bl", (-1.0, -1.0)),
     ("scale_br", (1.0, -1.0)),
