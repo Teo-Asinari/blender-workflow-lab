@@ -120,14 +120,8 @@ belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 - Shipped in 0.15.26: SSS Caliper colored rings are available outside an
   active GPU painting session. The white brush ring remains GPU-paint-only.
-- Viewport-plane stencil **scale and rotate** handles. Numeric Viewport Scale
-  and Rotation already exist; this is interactive 2D manipulation of a Planar
-  Viewport stencil in the view plane (corner/edge scale, rotate handle),
-  writing the same `brush_stencil_scale` / `brush_stencil_rotation` properties
-  the GPU dab shader already samples. Shift (or equivalent) should preserve
-  aspect. Brush Footprint mode already follows the dab; leave its Brush Scale
-  numeric unless the same handles map onto it without fighting the cursor.
-  Translate handles are the remaining sibling (Position is still numeric).
+- Shipped in 0.15.27: Planar Viewport stencil scale and rotate handles.
+  Translate/Position handles remain numeric.
 - Improve Smear across rotated UV islands and seams.
 
 ## Architecture and compatibility

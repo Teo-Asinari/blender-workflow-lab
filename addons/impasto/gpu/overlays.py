@@ -6,6 +6,7 @@ import math
 import bpy
 import gpu
 
+from .. import stencil
 from .caliper import sss_caliper_layout
 
 
@@ -76,8 +77,49 @@ def draw_stencil_preview(session, region, inspect_active,
         outline_shader.bind()
         outline_shader.uniform_float("color", (1.0, 0.72, 0.18, 0.95))
         outline.draw(outline_shader)
+        _draw_stencil_handles(session.settings,
+                              (region.width, region.height))
     finally:
         gpu.state.blend_set(prior_blend)
+
+
+def _draw_stencil_handles(settings, region_size):
+    """Corner/edge scale boxes and a rotate knob in the view plane."""
+    if settings.get("stencil_projection") != "VIEW_STENCIL":
+        return
+    handles = stencil.planar_handle_points(region_size, settings)
+    if not handles:
+        return
+    from gpu_extras.batch import batch_for_shader
+    shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    half = 5.0
+    scale_color = (1.0, 0.92, 0.35, 0.95)
+    rotate_color = (0.45, 0.85, 1.0, 0.95)
+    for name, (x, y) in handles:
+        if name == "rotate":
+            segments = 16
+            circle = [(x + math.cos(i * math.tau / segments) * 6.0,
+                       y + math.sin(i * math.tau / segments) * 6.0)
+                      for i in range(segments)]
+            batch = batch_for_shader(shader, "LINE_LOOP", {"pos": circle})
+            shader.bind()
+            shader.uniform_float("color", rotate_color)
+            batch.draw(shader)
+            continue
+        box = ((x - half, y - half), (x + half, y - half),
+               (x + half, y + half), (x - half, y + half))
+        batch = batch_for_shader(shader, "TRI_FAN", {"pos": box})
+        shader.bind()
+        shader.uniform_float("color", scale_color)
+        batch.draw(shader)
+    # Line from the top edge to the rotate knob so the control is obvious.
+    top = next((pos for name, pos in handles if name == "scale_t"), None)
+    rotate = next((pos for name, pos in handles if name == "rotate"), None)
+    if top is not None and rotate is not None:
+        batch = batch_for_shader(shader, "LINES", {"pos": (top, rotate)})
+        shader.bind()
+        shader.uniform_float("color", rotate_color)
+        batch.draw(shader)
 
 
 def draw_brush_reticle(session, inspect_active):

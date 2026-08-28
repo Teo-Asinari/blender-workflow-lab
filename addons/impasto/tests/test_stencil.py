@@ -157,6 +157,45 @@ try:
     check("planar preview uses the exact normalized stencil footprint",
           planar_quad == ((200.0, 225.0), (600.0, 225.0),
                           (600.0, 375.0), (200.0, 375.0)))
+    handle_settings = stencil.normalized(
+        True, "Mask", 'VIEW_STENCIL', position=(0.5, 0.5),
+        scale=(0.5, 0.25), rotation=0.0)
+    handles = dict(stencil.planar_handle_points((800, 600), handle_settings))
+    check("planar handles sit on the preview corners and top rotate knob",
+          handles["scale_bl"] == (200.0, 225.0)
+          and handles["scale_tr"] == (600.0, 375.0)
+          and abs(handles["rotate"][0] - 400.0) < 1e-6
+          and abs(handles["rotate"][1] - (375.0 + stencil.ROTATE_OFFSET_PX))
+          < 1e-6)
+    check("corner handle hit-tests in pixel space",
+          stencil.hit_planar_handle((200.0, 225.0), (800, 600),
+                                    handle_settings) == "scale_bl")
+    check("interior of the stencil is not a handle",
+          stencil.hit_planar_handle((400.0, 300.0), (800, 600),
+                                    handle_settings) is None)
+    scaled, rotation = stencil.apply_planar_handle_drag(
+        "scale_tr", (700.0, 400.0), (800, 600), handle_settings)
+    check("corner drag writes normalized viewport scale",
+          abs(scaled[0] - 0.75) < 1e-6 and abs(scaled[1] - 1.0 / 3.0) < 1e-6
+          and abs(rotation) < 1e-9, repr((scaled, rotation)))
+    uniform, _rot = stencil.apply_planar_handle_drag(
+        "scale_tr", (700.0, 400.0), (800, 600), handle_settings,
+        preserve_aspect=True)
+    start_aspect = handle_settings.scale[0] / handle_settings.scale[1]
+    check("shift-scale preserves aspect",
+          abs(uniform[0] / uniform[1] - start_aspect) < 1e-6, repr(uniform))
+    _scale, rest = stencil.apply_planar_handle_drag(
+        "rotate", handles["rotate"], (800, 600), handle_settings)
+    check("rotate handle at rest keeps current rotation",
+          abs(rest) < 1e-6, repr(rest))
+    _scale, turned = stencil.apply_planar_handle_drag(
+        "rotate", (500.0, 300.0), (800, 600), handle_settings)
+    check("rotate handle follows the view-plane cursor",
+          abs(turned + math.pi * 0.5) < 1e-6, repr(turned))
+    brush_handles = stencil.planar_handle_points(
+        (800, 600), stencil.normalized(True, "Tip", 'BRUSH_ALPHA'))
+    check("brush-footprint stencils have no view-plane handles",
+          brush_handles == ())
     brush_quad = gpu_engine.stencil_preview_quad(
         (800, 600), (100.0, 120.0), 20.0, {
             "stencil_enabled": True, "stencil_image_name": mask.name,

@@ -4,6 +4,14 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.27
+
+- Add viewport-plane scale and rotate handles for Planar Viewport image
+  stencils during GPU painting. Corner and edge boxes change Viewport Scale;
+  the top knob rotates. Shift preserves aspect. Numeric fields stay in sync.
+  Esc or right-click during a handle drag restores the start transform.
+  Brush Footprint stencils are unchanged.
+
 ## 0.15.26
 
 - Show the SSS Caliper colored Scale×Radius rings whenever Show SSS Caliper

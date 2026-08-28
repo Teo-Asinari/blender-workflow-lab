@@ -1473,6 +1473,7 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         self._auto_inspect_deadline = None
         self._pending_save_as = None
         self._stopping = False
+        self._stencil_drag = None
         gpu_engine.set_cursor(event.mouse_x - region.x,
                               event.mouse_y - region.y)
         self._timer = context.window_manager.event_timer_add(
@@ -1576,6 +1577,84 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         if changed:
             self._region.tag_redraw()
         return changed
+
+    def _stencil_layer(self):
+        tree = bpy.data.node_groups.get(self._tree_name)
+        if tree is None:
+            return None
+        return tree.impasto.layers.get(self._layer_uid)
+
+    def _consume_stencil_transform(self, context, event):
+        """Scale/rotate a Planar Viewport stencil instead of painting."""
+        etype = event.type
+        drag = getattr(self, "_stencil_drag", None)
+        if drag is not None:
+            if etype == 'MOUSEMOVE' or (
+                    etype == 'LEFTMOUSE' and event.value == 'PRESS'):
+                self._apply_stencil_drag(event)
+                return True
+            if etype == 'LEFTMOUSE' and event.value == 'RELEASE':
+                self._apply_stencil_drag(event)
+                self._stencil_drag = None
+                self._region.tag_redraw()
+                return True
+            if etype in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
+                self._revert_stencil_drag()
+                self._stencil_drag = None
+                self._region.tag_redraw()
+                return True
+            return True
+        if etype != 'LEFTMOUSE' or event.value != 'PRESS':
+            return False
+        if gpu_engine.stroke_active() \
+                or gpu_engine.material_inspect_active() \
+                or gpu_engine.material_inspect_requested():
+            return False
+        if self._over_interface_region(event):
+            return False
+        layer = self._stencil_layer()
+        if layer is None:
+            return False
+        settings = gpu_stencil_settings(layer)
+        if settings.projection != 'VIEW_STENCIL' or not settings.active:
+            return False
+        rx, ry = self._mouse_region(event)
+        handle = stencil.hit_planar_handle(
+            (rx, ry), (self._region.width, self._region.height), settings)
+        if handle is None:
+            return False
+        self._stencil_drag = {
+            "handle": handle,
+            "start": settings,
+            "preserve": bool(event.shift),
+        }
+        self._apply_stencil_drag(event)
+        return True
+
+    def _apply_stencil_drag(self, event):
+        drag = self._stencil_drag
+        layer = self._stencil_layer()
+        if drag is None or layer is None:
+            return
+        rx, ry = self._mouse_region(event)
+        gpu_engine.set_cursor(rx, ry)
+        scale, rotation = stencil.apply_planar_handle_drag(
+            drag["handle"], (rx, ry),
+            (self._region.width, self._region.height),
+            drag["start"], preserve_aspect=drag["preserve"] or event.shift)
+        layer.brush_stencil_scale = scale
+        layer.brush_stencil_rotation = rotation
+        self._refresh_stencil_settings()
+
+    def _revert_stencil_drag(self):
+        drag = self._stencil_drag
+        layer = self._stencil_layer()
+        if drag is None or layer is None:
+            return
+        start = drag["start"]
+        layer.brush_stencil_scale = start.scale
+        layer.brush_stencil_rotation = start.rotation
+        self._refresh_stencil_settings()
 
     def _refresh_preview_lighting(self):
         """Apply sidebar lighting edits without restarting or synchronizing."""
@@ -1733,6 +1812,8 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
                 gpu_engine.request_material_inspect()
                 self.report({'INFO'}, "Syncing Blender material preview")
             self._region.tag_redraw()
+            return {'RUNNING_MODAL'}
+        if self._consume_stencil_transform(context, event):
             return {'RUNNING_MODAL'}
         if etype == 'P' and event.value == 'PRESS':
             if (gpu_engine.material_inspect_active()
