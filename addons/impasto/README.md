@@ -124,8 +124,8 @@ not GPU paint-canvas channels.
 ## Install
 
 Impasto currently targets Blender 5.1 and is experimental. Download
-`impasto-0.15.31.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+`impasto-0.15.31.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Impasto**. Copying `addons/impasto/` into `scripts/addons/`
 remains a developer option.
@@ -356,6 +356,11 @@ zero status after a Python exception. See the
 [changelog](CHANGELOG.md). Architectural background is in
 [`../../research/layer-stack-design.md`](../../research/layer-stack-design.md).
 
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
 ## License
 
-GPL-2.0-or-later.
+GPL-3.0-or-later. Brush icons in `assets/icons/` are CC0.

@@ -39,8 +39,8 @@ over the bmesh edge graph.
 
 ## Install
 
-Download `seam_path_tool-1.4.0.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+Download `seam_path_tool-1.4.0.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Seam Path Tool**. Copying or symlinking the `seam_path_tool`
 folder into `scripts/addons/` remains a developer option (on Windows:
@@ -257,3 +257,12 @@ profiling harness (not run by the wrapper) that measures the commit-click
 cost breakdown on a ~300k-vert grid. Only the modal event plumbing and
 GPU preview cannot run headlessly; they need a quick manual check in the
 GUI.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.

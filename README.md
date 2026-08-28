@@ -17,14 +17,19 @@ limitations, and interactive acceptance checks.
 
 **Install from Disk** is the supported user path:
 
-1. Download a versioned ZIP from
-   [GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
-   (for example `impasto-0.15.31.zip`).
+1. Download a versioned ZIP from the
+   [v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
+   (or [latest](https://github.com/Teo-Asinari/blender-workflow-lab/releases)).
 2. In Blender: **Edit > Preferences > Add-ons > Install from Disk**.
 3. Enable the add-on.
 
 Copying `addons/<name>/` (minus `tests/`) into `scripts/addons/` remains a
 developer option.
+
+## Support
+
+Report bugs and requests at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
 
 ## In use
 
@@ -44,25 +49,14 @@ are stored in the `.blend` and can be replayed with the current brush, providing
 a deterministic workflow tool and the structured demonstrations needed for a
 future imitation-learning sculpt assistant.
 
-### UV Island Overlay
+### [Seam Path Tool](addons/seam_path_tool/) — v1.4.0
+
+Interactive shortest-path UV seam marking in Edit Mode: click points on the mesh, each click commits a seam along the shortest path from the last anchor, with a live preview of the candidate path under the cursor. Occlusion-aware vertex picking, erase mode, per-segment undo, on-screen help panel. Fast on large meshes: commits reuse the previewed path (no pathfinding on click). If scipy is already importable in Blender, Length-mode trees use it; otherwise numpy BFS and a pure-Python fill cover every feature.
+
+### [UV Island Overlay](addons/uv_island_overlay/) — v1.5.2
 
 ![UV islands and texel density shown together](media/screenshots/uv-island-overlay/Screenshot%202026-08-11%20015455.png)
 
-### Kiln
-
-| High-poly source and plain low-poly target | High-poly source and baked low-poly result |
-| --- | --- |
-| ![High-poly source beside the unbaked low-poly target](media/screenshots/kiln/Screenshot%202026-08-11%20020629.png) | ![High-poly source beside the baked low-poly result](media/screenshots/kiln/Screenshot%202026-08-11%20020803.png) |
-
-### Calipers
-
-![Scale-aware voxel-remesh estimates and viewport guide](media/screenshots/calipers/Screenshot%202026-08-11%20020208.png)
-
-### [Seam Path Tool](addons/seam_path_tool/) — v1.4.0
-
-Interactive shortest-path UV seam marking in Edit Mode: click points on the mesh, each click commits a seam along the shortest path from the last anchor, with a live preview of the candidate path under the cursor. Occlusion-aware vertex picking, erase mode, per-segment undo, on-screen help panel. Fast on large meshes: commits reuse the previewed path (no pathfinding on click), and the hover path tree solves at C speed via an optional scipy dependency (pure-Python fallback included).
-
-### [UV Island Overlay](addons/uv_island_overlay/) — v1.5.2
 
 Viewport overlay that colors each UV island distinctly and/or drapes a texel-density checkerboard through the actual UVs — the default combined mode shows both at once (hue = island, checker scale = density). Islands can be computed from true UV connectivity or *predicted from seams live as you mark them*, no unwrap needed. Per-island density stats, deviation tint, live opacity controls. Drawn as a GPU overlay; the mesh is never modified.
 
@@ -72,6 +66,10 @@ only a few pixels at the selected texture resolution. Each category can be
 selected directly in face Edit Mode.
 
 ### [Kiln](addons/kiln/) — v1.2.1
+
+| High-poly source and plain low-poly target | High-poly source and baked low-poly result |
+| --- | --- |
+| ![High-poly source beside the unbaked low-poly target](media/screenshots/kiln/Screenshot%202026-08-11%20020629.png) | ![High-poly source beside the baked low-poly result](media/screenshots/kiln/Screenshot%202026-08-11%20020803.png) |
 
 A guided high-poly → low-poly normal-baking workflow in one sidebar panel:
 pair the sculpt with a retopo mesh (existing, or a generated QuadriFlow
@@ -86,6 +84,8 @@ of replacing its Normal connection. Normals-only for now.
 
 ### [Calipers](addons/calipers/) — v1.2.0
 
+![Scale-aware voxel-remesh estimates and viewport guide](media/screenshots/calipers/Screenshot%202026-08-11%20020208.png)
+
 Scale-aware voxel-remesh preview and safety (the Proposal §5 prototype). A
 sidebar panel shows, for both Sculpt Mode Voxel Remesh and the Remesh modifier,
 what the current voxel size means for the selected mesh: cell counts along each
@@ -95,7 +95,7 @@ default `0.1 m` voxel size from triggering a prohibitively expensive operation
 without review. A viewport guide draws grid slices and voxel-sized samples at
 all eight bounding-box corners so scale can be judged visually.
 
-### [Impasto](addons/impasto/) — v0.15.24 (active development)
+### [Impasto](addons/impasto/) — v0.15.31 (active development)
 
 A non-destructive Principled-PBR layer stack with Fill, Paint, and pass-through
 Group layers. One logical Paint layer can own separate Base Color, Metallic,
@@ -232,7 +232,8 @@ python scripts/package_addons.py impasto
 Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 `bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
 `uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
-`impasto-0.15.31.zip`, `sculpt_stroke_recorder-0.1.0.zip`. Each ZIP has the
+`impasto-0.15.31.zip`, `sculpt_stroke_recorder-0.1.0.zip`,
+`dropbox_blend_pause-0.1.0.zip`. Each ZIP has the
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
 Python, `assets/`, `blender_manifest.toml`, `LICENSE`, and `README.md` are
@@ -241,11 +242,11 @@ if it is already importable in Blender; every feature has a bundled fallback.
 
 ### Cutting a GitHub Release
 
-Push a git tag matching `v*` (for example `v2026.08.28`) to run
-`.github/workflows/package-addons.yml`. The workflow builds every add-on ZIP
-and attaches them as release assets. `workflow_dispatch` builds the same ZIPs
-as CI artifacts without creating a release. Do not push a tag until the
-add-on versions in `bl_info` are the ones you want on the Release.
+The current public Release is
+[v2026.08.28](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28).
+Push a new `v*` tag to run `.github/workflows/package-addons.yml`, which
+rebuilds every ZIP and attaches them as assets. `workflow_dispatch` builds
+the same ZIPs as CI artifacts without creating a release.
 
 Submitting to [Blender Extensions](https://extensions.blender.org/) is a
 later human step: Calipers, Kiln, and UV Island Overlay first, then Seam

@@ -39,8 +39,8 @@ traceback or a silently black texture.
 
 ## Install
 
-Download `kiln-1.2.1.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+Download `kiln-1.2.1.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Kiln**. Works on Blender 4.2+ / 5.x (probed throughout on
 5.1.2). Copying or symlinking the `kiln` folder into `scripts/addons/`
@@ -339,3 +339,12 @@ Scene properties, not WindowManager ones.
 Inspired by the one-button baker workflows of specialized baking and
 texturing tools. This project is independent and is not affiliated
 with or endorsed by the vendors of any such tools.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.

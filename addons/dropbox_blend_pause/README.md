@@ -15,8 +15,11 @@ Default watch folder:
 
 ## Install
 
-Copy `dropbox_blend_pause/` into Blender’s `scripts/addons/` directory, or
-Install from Disk a packaged ZIP. Enable **Dropbox Blend Pause**.
+Download `dropbox_blend_pause-0.1.0.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
+and install it with **Edit > Preferences > Add-ons > Install from Disk**,
+then enable **Dropbox Blend Pause**. Copying `dropbox_blend_pause/` into
+`scripts/addons/` remains a developer option.
 
 ## Use
 
@@ -36,3 +39,12 @@ have the project open.
 - If two Blender windows have the watched project open, closing the first
   will start Dropbox while the second is still saving.
 - Dropbox may take a few seconds to appear in the tray after restart.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.

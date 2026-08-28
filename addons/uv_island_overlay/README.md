@@ -44,8 +44,8 @@ explicit **Select** action changes face selection.
 
 ## Install
 
-Download `uv_island_overlay-1.5.2.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+Download `uv_island_overlay-1.5.2.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **UV Island Overlay**. Works on Blender 4.2+ / 5.x. Copying or
 symlinking the `uv_island_overlay` folder into `scripts/addons/` remains a
@@ -611,3 +611,12 @@ Inspired by island-visualization and texel-density-checker workflows
 found in specialized 3D tools such as 3DCoat (e.g. its retopo/UV
 rooms). This project is independent and is not affiliated with or
 endorsed by Pilgway.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.

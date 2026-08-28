@@ -59,8 +59,8 @@ Modifier-input confidence rules (each case probed on 5.1.2):
 
 ## Install
 
-Download `calipers-1.2.0.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+Download `calipers-1.2.0.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Calipers**. The panel appears in the 3D Viewport sidebar (`N`)
 under the **Calipers** tab. Copying or symlinking the `calipers` folder into
@@ -231,3 +231,12 @@ operation ignores modifiers and shape keys.
 - `overlay.py` — GPU viewport guide + blf annotation.
 - `probes/` — one-shot API probe scripts (not part of the suite).
 - `tests/` — the headless suite.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.

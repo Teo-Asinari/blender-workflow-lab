@@ -6,8 +6,8 @@ samples. Recordings are stored in the Scene and survive saving the `.blend`.
 
 ## Install
 
-Download `sculpt_stroke_recorder-0.1.0.zip` from
-[GitHub Releases](https://github.com/Teo-Asinari/blender-workflow-lab/releases)
+Download `sculpt_stroke_recorder-0.1.0.zip` from the
+[v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Sculpt Stroke Recorder**. This add-on is experimental. Copying
 or symlinking the `sculpt_stroke_recorder` folder into `scripts/addons/`
@@ -60,4 +60,13 @@ asset.
 5. All three deformations must return in their original locations.
 6. Undo once; the entire replay should be reverted as one operator action.
 7. Save and reopen the `.blend`; the take and its sample payloads must remain.
+
+## Support
+
+Report issues at
+[github.com/Teo-Asinari/blender-workflow-lab/issues](https://github.com/Teo-Asinari/blender-workflow-lab/issues).
+
+## License
+
+GPL-3.0-or-later.
 
