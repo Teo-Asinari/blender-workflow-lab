@@ -304,8 +304,13 @@ class ImpastoLayer(bpy.types.PropertyGroup):
         description="Use tablet pressure to control GPU brush size",
         default=True)
     brush_stencil_enabled: BoolProperty(
-        name="Image Stencil", description="Modulate every enabled GPU paint "
-        "channel with one shared image mask", default=False)
+        name="Image Stencil",
+        description="Modulate every enabled GPU paint channel with one "
+                    "shared image mask. Toggle during GPU painting — it "
+                    "applies on the next stroke. Do not restart the GPU "
+                    "session. Assign a stencil image or the toggle does "
+                    "nothing. Press P to pause while editing the N-panel",
+        default=False)
     brush_stencil_image: PointerProperty(
         name="Stencil Image", type=bpy.types.Image,
         description="Alpha or luminance image used by the GPU brush")

@@ -316,3 +316,28 @@ def restore_native_state(context, state):
         if (use_color is not None
                 and hasattr(current_unified, "use_unified_color")):
             current_unified.use_unified_color = use_color
+
+
+def write_flushed_image_pixels(image, arr):
+    """Write GPU readback into a Blender Image and refresh packed bytes.
+
+    ``foreach_set`` updates ``Image.pixels``, which the viewport shows.
+    Packed FILE images also keep a separate PNG blob. File Save and
+    ``image.reload()`` can persist or restore that blob unless ``pack()``
+    runs after the write. Generated images store pixels in the .blend and
+    are left unpacked.
+
+    This stayed latent while most canvases were generated. Packed emission
+    canvases on BlackBody_Low (2026-08-29) showed the viewport flush and
+    then lost the marks on save/reload.
+    """
+    image.pixels.foreach_set(arr)
+    image.update()
+    image.update_tag()
+    if image.packed_file is None:
+        return
+    try:
+        image.pack()
+    except Exception as exc:
+        print("[impasto] GPU flush updated pixels but could not re-pack %r: %s"
+              % (image.name, exc))

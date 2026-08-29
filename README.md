@@ -33,7 +33,7 @@ Report bugs and requests at
 
 ## In use
 
-### [Dropbox Blend Pause](addons/dropbox_blend_pause/) — v0.1.0
+### [Dropbox Blend Pause](addons/dropbox_blend_pause/) — v0.1.1
 
 Quits the Dropbox desktop client while a watched project folder is open in
 Blender (default `Dropbox\My Sculptures\2026-02-16_#1`), then starts Dropbox
@@ -41,13 +41,14 @@ again when you leave that folder. Workaround for Blender's `@` save-backup
 failure when Dropbox locks texture files. Not a per-folder pause: the whole
 client stops. Does not use Dropbox ignore (that would delete the cloud copy).
 
-### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.1.0
+### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.3.0
 
-Records completed native Sculpt Mode strokes—including 3D locations, pressure,
-radius, tilt, and timing—without replacing Blender's sculpt interaction. Takes
-are stored in the `.blend` and can be replayed with the current brush, providing
-a deterministic workflow tool and the structured demonstrations needed for a
-future imitation-learning sculpt assistant.
+Records completed native Sculpt Mode, Texture Paint, and Impasto GPU
+strokes—including pointer samples, pressure, radius, tilt, and timing—without
+replacing those paint paths. Takes are stored in the `.blend` and replay with
+the current brush of the matching mode (an active Impasto GPU session for GPU
+takes). This is a deterministic workflow tool and a dataset foundation for
+later imitation-learning work.
 
 ### [Seam Path Tool](addons/seam_path_tool/) — v1.4.0
 
@@ -95,7 +96,7 @@ default `0.1 m` voxel size from triggering a prohibitively expensive operation
 without review. A viewport guide draws grid slices and voxel-sized samples at
 all eight bounding-box corners so scale can be judged visually.
 
-### [Impasto](addons/impasto/) — v0.15.31 (active development)
+### [Impasto](addons/impasto/) — v0.15.33 (active development)
 
 A non-destructive Principled-PBR layer stack with Fill, Paint, and pass-through
 Group layers. One logical Paint layer can own separate Base Color, Metallic,
@@ -192,6 +193,8 @@ save/export should be preceded by **Flush for Save / Export**.
   longer-term layered painting and voxel-sculpting changes that ultimately need
   work in Blender's core.
 - [research/](research/) — technical research feeding the flagship designs.
+- [Keep this a monorepo](research/monorepo.md) — why the seven add-ons stay in
+  one GitHub repository even though they ship as independent ZIPs.
 - [Impasto documentation](addons/impasto/docs/README.md) — current workflow,
   roadmap, changelog, technical references, and archived design history.
 - [Impasto GPU performance history](addons/impasto/docs/PERFORMANCE_HISTORY.md)
@@ -232,8 +235,8 @@ python scripts/package_addons.py impasto
 Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 `bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
 `uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
-`impasto-0.15.31.zip`, `sculpt_stroke_recorder-0.1.0.zip`,
-`dropbox_blend_pause-0.1.0.zip`. Each ZIP has the
+`impasto-0.15.33.zip`, `sculpt_stroke_recorder-0.3.0.zip`,
+`dropbox_blend_pause-0.1.1.zip`. Each ZIP has the
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
 Python, `assets/`, `blender_manifest.toml`, `LICENSE`, and `README.md` are

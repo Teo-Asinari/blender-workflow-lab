@@ -2674,6 +2674,7 @@ class _Session:
         self.dab_count = 0
         self.submit_times = []         # seconds, one per dab
         self.dab_queue = []            # (x, y, pressure)
+        self.input_samples = []        # raw pointer samples for replay
         self.last_px = None            # last dab position (x, y)
         self.last_pressure = 1.0       # last valid tablet sample
         self.leftover = 0.0
@@ -2796,6 +2797,80 @@ STATS_LAYOUT = (
 # ---------------------------------------------------------------------------
 # Public API (modal operator + panel)
 # ---------------------------------------------------------------------------
+
+
+KIND_IMPASTO_GPU = "impasto_gpu"
+
+_stroke_listeners = []
+
+
+def add_stroke_listener(callback):
+    """Register for completed GPU strokes (pen-up). Idempotent."""
+    if callback not in _stroke_listeners:
+        _stroke_listeners.append(callback)
+
+
+def remove_stroke_listener(callback):
+    try:
+        _stroke_listeners.remove(callback)
+    except ValueError:
+        pass
+
+
+def _pointer_sample(s, x, y, pressure, is_start, extras=None):
+    extras = extras or {}
+    elapsed = 0.0
+    if s.stroke_t0 is not None:
+        elapsed = max(0.0, time.perf_counter() - s.stroke_t0)
+    if extras.get("time") is not None:
+        elapsed = max(0.0, float(extras["time"]))
+    mouse = [float(x), float(y)]
+    return {
+        "name": "",
+        "location": [0.0, 0.0, 0.0],
+        "mouse": mouse,
+        "mouse_event": list(mouse),
+        "pressure": float(pressure),
+        "size": float(s.settings.get("radius") or 0.0),
+        "x_tilt": float(extras.get("x_tilt", 0.0) or 0.0),
+        "y_tilt": float(extras.get("y_tilt", 0.0) or 0.0),
+        "time": elapsed,
+        "is_start": bool(is_start),
+    }
+
+
+def completed_stroke_payload(s):
+    """JSON-friendly GPU stroke for recorders. None if there is nothing to store."""
+    samples = list(getattr(s, "input_samples", None) or ())
+    if not samples:
+        return None
+    settings = s.settings
+    return {
+        "schema": 1,
+        "kind": KIND_IMPASTO_GPU,
+        "mode": "NORMAL",
+        "brush_mode": str(settings.get("brush_mode", "PAINT")),
+        "radius": float(settings.get("radius") or 0.0),
+        "hardness": float(settings.get("hardness") or 0.0),
+        "opacity": float(settings.get("opacity") or 1.0),
+        "channel_keys": list(settings.get("channel_keys") or ()),
+        "target_channel_keys": list(
+            settings.get("brush_target_channel_keys") or ()),
+        "layer_uid": str(settings.get("active_layer_uid") or ""),
+        "object_name": s.obj_name,
+        "samples": samples,
+    }
+
+
+def _notify_completed_stroke(s):
+    payload = completed_stroke_payload(s)
+    if payload is None:
+        return
+    for callback in list(_stroke_listeners):
+        try:
+            callback(payload)
+        except Exception:
+            traceback.print_exc()
 
 
 def session_active():
@@ -3205,7 +3280,7 @@ def _release_gpu_references(s):
     s.gpu_ready = False
 
 
-def begin_stroke(x, y, pressure):
+def begin_stroke(x, y, pressure, extras=None):
     s = _session
     if s is None or s.error is not None:
         return
@@ -3219,6 +3294,7 @@ def begin_stroke(x, y, pressure):
     s.last_px = (x, y)
     s.last_pressure = pressure
     s.leftover = 0.0
+    s.input_samples = [_pointer_sample(s, x, y, pressure, True, extras)]
     s.stroke_dirty = None
     s.stroke_dirty_full = False
     s.stroke_gutter_rects = {}
@@ -3241,12 +3317,14 @@ def begin_stroke(x, y, pressure):
     s.dab_queue.append((x, y, pressure))
 
 
-def move_stroke(x, y, pressure, radius_px):
+def move_stroke(x, y, pressure, radius_px, extras=None):
     s = _session
     if s is None or not s.stroke_active or s.error is not None:
         return
     x0, y0 = s.last_px
     pressure = sanitize_pressure(pressure, s.last_pressure)
+    s.input_samples.append(
+        _pointer_sample(s, x, y, pressure, False, extras))
     stamp = s.settings.get("brush_stamp")
     if stamp is not None:
         mean_pressure = (s.last_pressure + pressure) * 0.5
@@ -3274,6 +3352,7 @@ def end_stroke():
     # Pen-up is GPU-only. The draw callback drains any queued dabs and records
     # the stroke boundary, but performs no texture readback or Image writes.
     s.pending_finalize = True
+    _notify_completed_stroke(s)
 
 
 def request_flush():

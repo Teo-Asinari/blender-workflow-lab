@@ -15,7 +15,7 @@ Default watch folder:
 
 ## Install
 
-Download `dropbox_blend_pause-0.1.0.zip` from the
+Download `dropbox_blend_pause-0.1.1.zip` from the
 [v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Dropbox Blend Pause**. Copying `dropbox_blend_pause/` into

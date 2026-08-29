@@ -4,6 +4,25 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.33
+
+- Image Stencil tooltip and in-session hint: toggle applies on the next
+  stroke without restarting GPU painting; assign an image or the toggle
+  does nothing.
+- GPU flush re-packs already-packed images after writing pixels. Packed FILE
+  canvases keep a separate PNG blob; the viewport shows `Image.pixels`, so a
+  flush could look saved and then File Save/reload restored the old packed
+  bytes. Generated canvases were unaffected (pixels live in the `.blend`).
+  Observed 2026-08-29 on BlackBody_Low packed Emission Color/Strength: today's
+  white emission points flushed in the session and were missing after save.
+  Empty Base Color on that emission layer was intentional.
+
+## 0.15.32
+
+- GPU pen-up emits a completed-stroke payload (region mouse, pressure, tilt,
+  brush settings) so Stroke Recorder can capture Impasto GPU strokes without
+  replacing the paint modal.
+
 ## 0.15.31
 
 - Draw scale handles as sharp, single-color squares that rotate with the

@@ -1348,6 +1348,17 @@ class IMPASTO_OT_native_multichannel_paint(bpy.types.Operator):
         self._restore(context)
 
 
+def _stroke_pointer_extras(event):
+    """Tablet tilt for GPU stroke recording; missing Event fields stay 0."""
+    tilt = getattr(event, "tilt", (0.0, 0.0))
+    try:
+        x_tilt = float(tilt[0])
+        y_tilt = float(tilt[1])
+    except (TypeError, ValueError, IndexError):
+        x_tilt = y_tilt = 0.0
+    return {"x_tilt": x_tilt, "y_tilt": y_tilt}
+
+
 class IMPASTO_OT_gpu_paint(bpy.types.Operator):
     """Paint every bound channel of the active Impasto paint layer with
     one GPU-resident stroke (LMB paints, RMB or Esc flushes and stops).
@@ -1726,20 +1737,14 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         if pending is None:
             return
         write_ms = 0.0
-        update_ms = 0.0
         for arr, image_name in pending:
             image = bpy.data.images.get(image_name)
             if image is None:
                 continue
             t0 = time.perf_counter()
-            image.pixels.foreach_set(arr)
-            t1 = time.perf_counter()
-            image.update()
-            image.update_tag()
-            t2 = time.perf_counter()
-            write_ms += (t1 - t0) * 1000.0
-            update_ms += (t2 - t1) * 1000.0
-        gpu_engine.record_sync_stats(write_ms, update_ms)
+            paint.write_flushed_image_pixels(image, arr)
+            write_ms += (time.perf_counter() - t0) * 1000.0
+        gpu_engine.record_sync_stats(write_ms, 0.0)
         gpu_engine.complete_material_inspect()
         # Repaint the composed material and any Image editors.
         for area in bpy.context.screen.areas:
@@ -1882,7 +1887,8 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
                         if key in self._channel_keys:
                             remember_recent_color(layer, key)
                 rx, ry = self._mouse_region(event)
-                gpu_engine.begin_stroke(rx, ry, event.pressure)
+                gpu_engine.begin_stroke(rx, ry, event.pressure,
+                                        _stroke_pointer_extras(event))
                 self._region.tag_redraw()
                 return {'RUNNING_MODAL'}
             if event.value == 'RELEASE' and gpu_engine.stroke_active():
@@ -1896,7 +1902,8 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
             rx, ry = self._mouse_region(event)
             gpu_engine.set_cursor(rx, ry)
             if gpu_engine.stroke_active():
-                gpu_engine.move_stroke(rx, ry, event.pressure, self._radius)
+                gpu_engine.move_stroke(rx, ry, event.pressure, self._radius,
+                                       _stroke_pointer_extras(event))
                 self._region.tag_redraw()
                 return {'RUNNING_MODAL'}
             self._region.tag_redraw()

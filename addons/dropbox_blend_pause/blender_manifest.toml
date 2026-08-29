@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "dropbox_blend_pause"
-version = "0.1.0"
+version = "0.1.1"
 name = "Dropbox Blend Pause"
 tagline = "Stop Dropbox while a watched Blender project is open"
 maintainer = "Teo Asinari"

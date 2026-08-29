@@ -43,3 +43,15 @@ leaving Blender's Principled renderer authoritative.
 Native Texture Paint activation remains available per canvas. Blender brush
 replay writes the same channel-specific values, colorspaces, and MIX mode as
 the resident GPU brush.
+
+## Packed-canvas flush (0.15.33)
+
+GPU flush must `pack()` after writing pixels when the canvas is already a
+packed FILE image. Flatten/export already did this; GPU flush did not.
+
+That gap stayed hidden while most paint canvases were generated (pixels
+stored in the `.blend`). Packed emission canvases show the flushed pixels
+in the viewport immediately, then File Save or `image.reload()` can restore
+the previous packed PNG. BlackBody_Low Emission Color/Strength on
+2026-08-29 lost today's white emission points this way. An empty Base Color
+binding on an emission-only layer is intentional and not the same bug.

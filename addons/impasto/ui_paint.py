@@ -279,11 +279,7 @@ class PaintPanelMixin:
         row = col.row(align=True)
         row.prop(layer, "gpu_preview_mode", text="Live Preview")
         row.popover(panel="IMPASTO_PT_preview_lighting", text="", icon='LIGHT')
-        stencil_box = col.box()
-        stencil_box.prop(layer, "brush_stencil_enabled")
-        controls = stencil_box.column(align=True)
-        controls.enabled = layer.brush_stencil_enabled
-        self._draw_stencil_controls(controls, layer)
+        self._draw_stencil_box(col, layer)
         row = col.row(align=True)
         row.prop(layer, "auto_material_preview", text="Idle Sync")
         delay = row.row(align=True)
@@ -299,6 +295,20 @@ class PaintPanelMixin:
             warning.alert = True
             warning.label(text="Experimental — adds GPU memory and pen-up work",
                           icon='ERROR')
+
+    def _draw_stencil_box(self, col, layer):
+        """Image Stencil toggle plus live-session hint and sub-controls."""
+        stencil_box = col.box()
+        stencil_box.prop(layer, "brush_stencil_enabled")
+        if gpu_engine.session_active():
+            stencil_box.label(
+                text="Live — next stroke, no GPU restart  ·  P to pause",
+                icon='INFO')
+        elif layer.brush_stencil_enabled and layer.brush_stencil_image is None:
+            stencil_box.label(text="Assign a stencil image", icon='INFO')
+        controls = stencil_box.column(align=True)
+        controls.enabled = layer.brush_stencil_enabled
+        self._draw_stencil_controls(controls, layer)
 
     def _draw_stencil_controls(self, col, layer):
         """Present projection, source data, and effect as distinct choices."""
@@ -504,11 +514,7 @@ class PaintPanelMixin:
             row.label(text="Pressure")
             row.prop(layer, "brush_pressure_opacity", toggle=True)
             row.prop(layer, "brush_pressure_size", toggle=True)
-            stencil_box = gpu_col.box()
-            stencil_box.prop(layer, "brush_stencil_enabled")
-            stencil_controls = stencil_box.column(align=True)
-            stencil_controls.enabled = layer.brush_stencil_enabled
-            self._draw_stencil_controls(stencil_controls, layer)
+            self._draw_stencil_box(gpu_col, layer)
             row = gpu_col.row(align=True)
             row.prop(layer, "auto_material_preview", text="Idle Material Sync")
             sub = row.row(align=True)

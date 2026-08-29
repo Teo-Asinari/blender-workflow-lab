@@ -22,7 +22,7 @@ if ADDONS not in sys.path:
     sys.path.insert(0, ADDONS)
 
 import impasto
-from impasto import gpu_engine, model, ops, props
+from impasto import gpu_engine, model, ops, paint, props
 from impasto.gpu import brush_math, caliper, overlays
 
 
@@ -623,6 +623,45 @@ try:
           and "s.soften_scratch_fb, work_rect" in engine_source
           and "s.paint_texs[index], s.soften_scratch = target, source"
           not in engine_source)
+    ops_source = Path(ops.__file__).read_text(encoding="utf-8")
+    sync_source = ops_source[
+        ops_source.index("def _apply_pending_sync"):
+        ops_source.index("def _perform_deferred_save")]
+    check("GPU flush re-packs packed images through the shared write helper",
+          "paint.write_flushed_image_pixels(image, arr)" in sync_source
+          and "image.pack()" in Path(paint.__file__).read_text(encoding="utf-8"))
+
+    packed = bpy.data.images.new("Impasto Packed Flush Test", 4, 4, alpha=True)
+    red = np.array([1.0, 0.0, 0.0, 1.0] * 16, dtype=np.float32)
+    green = np.array([0.0, 1.0, 0.0, 1.0] * 16, dtype=np.float32)
+    packed.pixels.foreach_set(red)
+    packed.pack()
+    packed.pixels.foreach_set(green)
+    packed.update()
+    packed.reload()
+    after_stale = np.empty(16 * 4, dtype=np.float32)
+    packed.pixels.foreach_get(after_stale)
+    check("reload restores stale packed bytes if flush did not re-pack",
+          abs(float(after_stale[1]) - 0.0) < 1e-5
+          and abs(float(after_stale[0]) - 1.0) < 1e-5)
+    paint.write_flushed_image_pixels(packed, green)
+    packed.reload()
+    after_pack = np.empty(16 * 4, dtype=np.float32)
+    packed.pixels.foreach_get(after_pack)
+    check("re-pack after GPU flush survives image.reload()",
+          packed.packed_file is not None
+          and abs(float(after_pack[1]) - 1.0) < 1e-5
+          and abs(float(after_pack[0]) - 0.0) < 1e-5)
+    generated = bpy.data.images.new(
+        "Impasto Generated Flush Test", 4, 4, alpha=True)
+    generated.pixels.foreach_set(red)
+    paint.write_flushed_image_pixels(generated, green)
+    check("generated canvases stay unpacked after GPU flush",
+          generated.packed_file is None)
+    out = np.empty(16 * 4, dtype=np.float32)
+    generated.pixels.foreach_get(out)
+    check("generated canvases still receive flushed pixels",
+          abs(float(out[1]) - 1.0) < 1e-5)
 
     # ---- headless session round-trip (harmless no-op contract) --------
     bpy.ops.mesh.primitive_plane_add(size=2.0)
@@ -670,7 +709,9 @@ try:
           and current_settings["brush_mode"] == 'SOFTEN'
           and current_settings["brush_target_channel_keys"] == ('height',)
           and current_settings["erase_channel_keys"] == ('base_color',))
-    gpu_engine.begin_stroke(10.0, 10.0, 0.2)
+    received = []
+    gpu_engine.add_stroke_listener(received.append)
+    gpu_engine.begin_stroke(10.0, 10.0, 0.2, {"x_tilt": 0.1, "y_tilt": -0.2})
     gpu_engine.move_stroke(30.0, 10.0, 0.8, 40.0)
     queued_pressures = [dab[2] for dab in gpu_engine._session.dab_queue]
     check("tablet pressure interpolates across generated dabs",
@@ -679,7 +720,19 @@ try:
           and queued_pressures == sorted(queued_pressures),
           repr(queued_pressures))
     check("stroke state tracks headlessly", gpu_engine.stroke_active())
+    check("GPU input samples keep the raw pointer stream",
+          gpu_engine._session.input_samples[0]["mouse"] == [10.0, 10.0]
+          and gpu_engine._session.input_samples[-1]["mouse"] == [30.0, 10.0]
+          and gpu_engine._session.input_samples[0]["is_start"] is True)
     gpu_engine.end_stroke()
+    check("pen-up notifies GPU stroke listeners",
+          len(received) == 1
+          and received[0]["kind"] == gpu_engine.KIND_IMPASTO_GPU
+          and received[0]["samples"][0]["pressure"] == 0.2
+          and received[0]["samples"][0]["x_tilt"] == 0.1
+          and received[0]["samples"][-1]["mouse"] == [30.0, 10.0],
+          repr(received[:1]))
+    gpu_engine.remove_stroke_listener(received.append)
     check("pen-up does not queue blocking Image synchronization",
           gpu_engine.take_pending_pixels() is None)
     check("explicit GPU flush can be queued independently of pen-up",

@@ -19,7 +19,7 @@ from bpy.types import AddonPreferences, Operator, Panel
 bl_info = {
     "name": "Dropbox Blend Pause",
     "author": "Teo Asinari",
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > Dropbox Pause",
     "description": "Stop Dropbox while a watched project is open in Blender",
@@ -51,10 +51,22 @@ def _watch_dir(context=None):
 
 
 def _open_path():
-    filepath = bpy.data.filepath
+    """Return the saved .blend path, or None if data is still restricted.
+
+    ``register()`` runs under ``_RestrictData``; ``bpy.data.filepath`` is
+    not available until enable finishes.
+    """
+    data = getattr(bpy, "data", None)
+    try:
+        filepath = getattr(data, "filepath", None)
+    except Exception:
+        return None
     if not filepath:
         return None
-    return Path(bpy.path.abspath(filepath))
+    try:
+        return Path(bpy.path.abspath(filepath))
+    except Exception:
+        return None
 
 
 def _is_watched_open(context=None):
@@ -136,6 +148,11 @@ def _sync_dropbox_state(context=None):
         _stop_dropbox()
     elif _paused_by_us:
         _start_dropbox()
+
+
+def _sync_after_register():
+    _sync_dropbox_state()
+    return None
 
 
 @persistent
@@ -236,10 +253,14 @@ def register():
         bpy.app.handlers.load_post.append(_on_load_post)
     if _on_save_post not in bpy.app.handlers.save_post:
         bpy.app.handlers.save_post.append(_on_save_post)
-    _sync_dropbox_state()
+    # Do not touch bpy.data here: enable still has RestrictData.
+    if not bpy.app.timers.is_registered(_sync_after_register):
+        bpy.app.timers.register(_sync_after_register, first_interval=0.0)
 
 
 def unregister():
+    if bpy.app.timers.is_registered(_sync_after_register):
+        bpy.app.timers.unregister(_sync_after_register)
     if _on_load_post in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load_post)
     if _on_save_post in bpy.app.handlers.save_post:

@@ -1,11 +1,11 @@
 schema_version = "1.0.0"
 id = "sculpt_stroke_recorder"
-version = "0.1.0"
-name = "Sculpt Stroke Recorder"
-tagline = "Experimental native sculpt stroke record and replay"
+version = "0.3.0"
+name = "Stroke Recorder"
+tagline = "Record sculpt, texture-paint, and Impasto GPU strokes"
 maintainer = "Teo Asinari"
 type = "add-on"
-tags = ["Sculpt"]
+tags = ["Sculpt", "Paint"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
 copyright = ["2026 Teo Asinari"]
