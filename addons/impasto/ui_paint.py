@@ -116,18 +116,21 @@ def draw_material_presets(layout, layer):
     box = layout.box()
     header = box.row(align=True)
     header.prop(
-        layer, "ui_show_material_presets", text="Material Presets",
+        layer, "ui_show_material_presets", text="Stroke Material Presets",
         icon=('TRIA_DOWN' if layer.ui_show_material_presets
               else 'TRIA_RIGHT'), emboss=False)
     header.operator(
         ops.IMPASTO_OT_material_preset_capture.bl_idname,
-        text="", icon='ADD')
+        text="Save Current", icon='ADD')
     if not layer.ui_show_material_presets:
         return
     presets = layer.id_data.impasto.material_presets
     if not presets:
-        box.label(text="Save the current brush material", icon='INFO')
+        box.label(text="Save the current channel values as one preset",
+                  icon='INFO')
         return
+    box.label(text="Applies values only — channel targets stay unchanged",
+              icon='INFO')
     grid = box.grid_flow(row_major=True, columns=2, even_columns=True,
                          even_rows=True, align=True)
     for index, preset in enumerate(presets):
@@ -308,6 +311,12 @@ class PaintPanelMixin:
             stencil_box.label(text="Assign a stencil image", icon='INFO')
         controls = stencil_box.column(align=True)
         controls.enabled = layer.brush_stencil_enabled
+        visibility = controls.box()
+        visibility.label(text="Stencil Visibility", icon='HIDE_OFF')
+        visibility.prop(layer, "brush_stencil_preview_opacity",
+                        text="View Opacity", slider=True)
+        visibility.label(text="Viewport only — paint strength is unchanged",
+                         icon='INFO')
         self._draw_stencil_controls(controls, layer)
 
     def _draw_stencil_controls(self, col, layer):
@@ -349,7 +358,7 @@ class PaintPanelMixin:
 
         controls = col.box()
         controls.label(text="Effect Controls", icon='SETTINGS')
-        controls.prop(layer, "brush_stencil_opacity", text="Stamp Opacity",
+        controls.prop(layer, "brush_stencil_opacity", text="Paint Strength",
                       slider=True)
         if layer.brush_stencil_normal_relief:
             controls.prop(layer, "brush_stencil_profile_strength",

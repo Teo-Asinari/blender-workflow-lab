@@ -1110,6 +1110,8 @@ def gpu_stencil_settings(layer):
         usage=getattr(layer, "brush_stencil_usage", 'COVERAGE'),
         coverage=getattr(layer, "brush_stencil_coverage", True),
         opacity=getattr(layer, "brush_stencil_opacity", 1.0),
+        preview_opacity=getattr(
+            layer, "brush_stencil_preview_opacity", 0.38),
         position=getattr(layer, "brush_stencil_position", (0.5, 0.5)),
         scale=scale,
         rotation=getattr(layer, "brush_stencil_rotation", 0.0),

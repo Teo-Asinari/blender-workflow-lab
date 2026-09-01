@@ -35,8 +35,8 @@ pen-up latency, and keep 8K experimental because the retained compact map alone
 costs 256 MiB. Partial UV overlaps and islands too small to cover a texel center
 remain limitations requiring diagnostics rather than silent claims of repair.
 
-Conservative boundary rasterization is available behind its own default-off
-toggle in 0.15.15. It processes only seam faces intersecting the current stroke,
+Conservative boundary rasterization is available behind its own default-on
+toggle. It processes only seam faces intersecting the current stroke,
 adds endpoint caps, protects rasterized island interiors, and supports Paint and
 Erase for literal color/scalar channels. **User-validated:** it removed the
 white staircase-like UV seam gaps on the complex 4K production mesh that
@@ -53,7 +53,7 @@ texels with unpainted atlas gutters; qualify explicit gutter ownership and
 filter behavior at multiple zoom levels before declaring distant-view seams
 resolved.
 
-This is the authoritative list of open work for Impasto 0.15.24. Shipped work
+This is the authoritative list of open work for Impasto 0.15.38. Shipped work
 belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 ## Near-term
@@ -126,6 +126,20 @@ belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 ## Architecture and compatibility
 
+- Add Substance material interoperability in two stages:
+  1. Implement a Substance texture-set importer for exported PNG, TIFF, and
+     EXR maps. Recognize common Painter/Sampler filename conventions, map
+     Base Color, Roughness, Metallic, Normal, Height, Emission, AO, and other
+     compatible outputs onto Impasto channels, assign correct color spaces,
+     and create a Fill or pass-through layer without requiring Adobe software.
+  2. Add an optional `.sbsar` bridge that discovers a user-installed,
+     separately licensed Substance Engine/SDK or command-line renderer,
+     exposes graph presets and parameters, renders outputs into a managed
+     cache, and feeds them through the same texture-set importer. Do not bundle
+     Adobe's runtime without an explicit redistribution-license review.
+  Native evaluation of editable `.sbs` graphs is out of initial scope: the XML
+  is readable, but reproducing Designer's complete and versioned node runtime
+  would be a separate material-engine project.
 - Investigate format-optimized resident paint targets: keep color and normal
   channels in `RGBA16F`, but store scalar channels such as Metallic,
   Roughness, Subsurface Weight, and Emission Strength in `R16F`. For seven

@@ -218,9 +218,10 @@ class ImpastoLayer(bpy.types.PropertyGroup):
         description="Show colors recently used for painting on this layer",
         default=False)
     ui_show_material_presets: BoolProperty(
-        name="Material Presets",
-        description="Show the compact brush-material preset palette",
-        default=False)
+        name="Stroke Material Presets",
+        description="Show saved bundles of material channel values for "
+                    "reuse between strokes",
+        default=True)
     paint_sss_weight: FloatProperty(
         name="Subsurface Weight",
         description="How much subsurface scattering contributes; 0 disables "
@@ -338,7 +339,13 @@ class ImpastoLayer(bpy.types.PropertyGroup):
             'NORMAL_PROFILE' if value else 'COVERAGE'))
     brush_stencil_opacity: FloatProperty(
         name="Stencil Opacity", default=1.0, min=0.0, max=1.0,
-        subtype='FACTOR')
+        subtype='FACTOR',
+        description="Strength applied by the stencil to painted strokes")
+    brush_stencil_preview_opacity: FloatProperty(
+        name="Viewport Opacity", default=0.38, min=0.0, max=1.0,
+        subtype='FACTOR',
+        description="Visibility of the stencil image in the viewport only; "
+                    "does not change its effect on painted strokes")
     brush_stencil_position: FloatVectorProperty(
         name="Position", description="Viewport-normalized stencil center",
         size=2, default=(0.5, 0.5), soft_min=0.0, soft_max=1.0)
@@ -445,7 +452,7 @@ class ImpastoLayer(bpy.types.PropertyGroup):
         name="Conservative UV Seam Paint",
         description="Experimental: paint a narrow face-clamped boundary "
                     "around touched UV seams to prevent texel-center gaps",
-        default=False)
+        default=True)
 
 
 class ImpastoChannel(bpy.types.PropertyGroup):

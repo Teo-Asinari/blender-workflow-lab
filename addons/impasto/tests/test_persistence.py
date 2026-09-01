@@ -70,6 +70,7 @@ try:
         paint.brush_stencil_interpretation = 'LUMINANCE'
         paint.brush_stencil_usage = 'NORMAL_PROFILE'
         paint.brush_stencil_opacity = 0.7
+        paint.brush_stencil_preview_opacity = 0.24
         paint.brush_stencil_position = (0.25, 0.75)
         paint.brush_stencil_scale = (0.2, 0.3)
         paint.brush_stencil_brush_scale = (1.2, 0.8)
@@ -156,6 +157,7 @@ try:
           and paint.brush_stencil_interpretation == 'LUMINANCE'
           and paint.brush_stencil_usage == 'NORMAL_PROFILE'
           and abs(paint.brush_stencil_opacity - 0.7) < 1e-6
+          and abs(paint.brush_stencil_preview_opacity - 0.24) < 1e-6
           and all(abs(a - b) < 1e-6 for a, b in zip(
               paint.brush_stencil_position, (0.25, 0.75)))
           and all(abs(a - b) < 1e-6 for a, b in zip(

@@ -4,6 +4,21 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.38
+
+- New Paint layers enable Conservative UV Seam Paint by default. It remains
+  available under Advanced for meshes or GPU backends that need it disabled.
+
+## 0.15.37
+
+- Image stencils now have a persistent viewport-only opacity control. The UI
+  places Stencil Visibility directly below the Image Stencil toggle and
+  distinguishes View Opacity from Paint Strength, so lowering the image
+  overlay for alignment never weakens the stencil applied to strokes.
+- Stroke Material Presets are now expanded by default and expose a labeled
+  Save Current action. Applying one restores its complete bundle of channel
+  values without changing the enabled paint-channel targets.
+
 ## 0.15.36
 
 - Lit PBR and the other GPU live previews now use a private linear-depth

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Headless stencil transform, mask, state, and shader-contract tests."""
 
+import inspect
 import math
 import sys
 import traceback
@@ -94,6 +95,8 @@ try:
         layer_type="PAINT") == {'FINISHED'})
     tree = engine.find_stack_for_material(obj.active_material)
     layer = tree.impasto.active_layer()
+    check("Conservative UV Seam Paint defaults on",
+          layer.experimental_conservative_seams)
     for scalar_key in ("metallic", "roughness"):
         check("bind %s stencil target" % scalar_key,
               bpy.ops.impasto.binding_add(
@@ -106,6 +109,7 @@ try:
     layer.brush_stencil_usage = 'NORMAL_PROFILE'
     layer.brush_stencil_coverage = True
     layer.brush_stencil_opacity = 0.6
+    layer.brush_stencil_preview_opacity = 0.22
     layer.brush_stencil_position = (0.25, 0.75)
     check("Brush Alpha defaults to one full brush diameter",
           tuple(layer.brush_stencil_brush_scale) == (1.0, 1.0)
@@ -122,6 +126,7 @@ try:
           and settings.usage == 'NORMAL_PROFILE'
           and settings.coverage
           and settings.opacity > 0.59
+          and abs(settings.preview_opacity - 0.22) < 1e-6
           and settings.profile_strength == 2.5
           and settings.profile_invert
           and settings.position == (0.25, 0.75)
@@ -130,8 +135,14 @@ try:
     gpu_settings = settings.as_gpu_settings()
     check("runtime settings contain no Blender RNA objects",
           gpu_settings['stencil_image_name'] == mask.name
+          and abs(gpu_settings['stencil_preview_opacity'] - 0.22) < 1e-6
           and all(not isinstance(value, bpy.types.ID)
                   for value in gpu_settings.values()))
+    overlay_source = inspect.getsource(
+        gpu_engine.gpu_overlays.draw_stencil_preview)
+    check("viewport stencil opacity is independent from paint strength",
+          'settings.get("stencil_preview_opacity", 0.38)' in overlay_source
+          and 'settings.get("stencil_opacity"' not in overlay_source)
 
     source = gpu_engine.dab_frag_src(4)
     check("dab shader samples one shared stencil factor",

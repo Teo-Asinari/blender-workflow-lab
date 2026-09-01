@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "impasto"
-version = "0.15.36"
+version = "0.15.38"
 name = "Impasto"
 tagline = "Experimental PBR layer painting"
 maintainer = "Teo Asinari"

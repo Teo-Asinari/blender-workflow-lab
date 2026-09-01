@@ -70,7 +70,8 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set("ALPHA")
         session.stencil_preview_shader.bind()
         session.stencil_preview_shader.uniform_float(
-            "stencil_preview_opacity", 0.38)
+            "stencil_preview_opacity", min(1.0, max(0.0, float(
+                session.settings.get("stencil_preview_opacity", 0.38)))))
         session.stencil_preview_shader.uniform_sampler(
             "stencil_preview_tex", stencil_tex)
         batch.draw(session.stencil_preview_shader)

@@ -48,6 +48,7 @@ class StencilSettings:
     usage: str = 'COVERAGE'
     coverage: bool = True
     opacity: float = 1.0
+    preview_opacity: float = 0.38
     position: tuple = (0.5, 0.5)
     scale: tuple = (0.35, 0.35)
     rotation: float = 0.0
@@ -67,6 +68,7 @@ class StencilSettings:
             "stencil_usage": self.usage,
             "stencil_coverage": self.coverage,
             "stencil_opacity": self.opacity,
+            "stencil_preview_opacity": self.preview_opacity,
             "stencil_position": self.position,
             "stencil_scale": self.scale,
             "stencil_rotation": self.rotation,
@@ -86,7 +88,8 @@ def _pair(value, default):
 def normalized(enabled=False, image_name="", projection='VIEW_STENCIL',
                interpretation='ALPHA', opacity=1.0, position=(0.5, 0.5),
                scale=(0.35, 0.35), rotation=0.0, usage='COVERAGE',
-               profile_strength=1.0, profile_invert=False, coverage=True):
+               profile_strength=1.0, profile_invert=False, coverage=True,
+               preview_opacity=0.38):
     """Return a clamped immutable stencil contract."""
     projection = str(projection).upper()
     if projection not in PROJECTION_IDS:
@@ -107,6 +110,7 @@ def normalized(enabled=False, image_name="", projection='VIEW_STENCIL',
         usage=usage,
         coverage=bool(coverage),
         opacity=min(1.0, max(0.0, float(opacity))),
+        preview_opacity=min(1.0, max(0.0, float(preview_opacity))),
         position=position,
         scale=(max(0.001, abs(scale[0])), max(0.001, abs(scale[1]))),
         rotation=float(rotation),

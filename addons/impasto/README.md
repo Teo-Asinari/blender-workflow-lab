@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.36 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.15.38 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.
@@ -70,15 +70,15 @@ GPU-to-Image synchronization remains mandatory and separately timed.
   excluded until its value can be converted between the islands' tangent bases.
   Exactly duplicated UV triangles disable the feature; partial overlaps and
   extremely subpixel islands remain diagnostic limitations.
-- A separate default-off **Conservative UV Seam Paint** mode addresses
+- A separate default-on **Conservative UV Seam Paint** mode addresses
   texel-center misses directly. Paint and Erase conservatively extend only
   touched UV seam edges by less than one texel, evaluate the brush at the
   corresponding face edge, protect existing island interiors, and include
   endpoint caps. This removed the previously persistent white, staircase-like
   seam gaps in user validation on a complex 4K production mesh. Tangent Normal,
   Soften, and Smear are excluded. Exterior gutters of islands packed within
-  roughly one texel can still collide, so the mode remains default-off while
-  that edge case and broader hardware coverage are qualified.
+  roughly one texel can still collide; disable the mode under Advanced if that
+  edge case or a GPU-backend incompatibility is encountered.
   A separate distance-dependent issue remains: seams may reappear abruptly
   when the viewport is zoomed out and vanish one zoom increment closer. This
   is consistent with texture-minification/filter-footprint contamination from
@@ -127,7 +127,7 @@ not GPU paint-canvas channels.
 ## Install
 
 Impasto currently targets Blender 5.1 and is experimental. Download
-`impasto-0.15.36.zip` from the
+`impasto-0.15.38.zip` from the
 [v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Impasto**. Copying `addons/impasto/` into `scripts/addons/`

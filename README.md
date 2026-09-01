@@ -96,7 +96,7 @@ default `0.1 m` voxel size from triggering a prohibitively expensive operation
 without review. A viewport guide draws grid slices and voxel-sized samples at
 all eight bounding-box corners so scale can be judged visually.
 
-### [Impasto](addons/impasto/) — v0.15.36 (active development)
+### [Impasto](addons/impasto/) — v0.15.38 (active development)
 
 A non-destructive Principled-PBR layer stack with Fill, Paint, and pass-through
 Group layers. One logical Paint layer can own separate Base Color, Metallic,
@@ -149,9 +149,9 @@ the authoritative preview-only manual override.
 Impasto 0.15.15 added user-validated **Conservative UV Seam Paint** for
 Paint and Erase. It evaluates the continuous brush footprint in a narrow
 face-clamped boundary strip, eliminating the white staircase-like texel gaps
-seen along UV islands on a complex 4K production mesh. The mode remains
-default-off while extremely close exterior gutters and broader GPU coverage are
-qualified.
+seen along UV islands on a complex 4K production mesh. New Paint layers enable
+the mode by default; it can still be disabled under Advanced for extremely
+close exterior gutters or incompatible GPU backends.
 Impasto 0.15.16 removes an unnecessary per-dab full-mesh UV scan from ordinary
 GPU Paint and Erase and adds detailed stroke timings to guide the remaining 4K
 performance work.
@@ -235,7 +235,7 @@ python scripts/package_addons.py impasto
 Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 `bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
 `uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
-`impasto-0.15.36.zip`, `sculpt_stroke_recorder-0.3.0.zip`,
+`impasto-0.15.38.zip`, `sculpt_stroke_recorder-0.3.0.zip`,
 `dropbox_blend_pause-0.1.1.zip`. Each ZIP has the
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
