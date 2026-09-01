@@ -59,11 +59,13 @@ check("large per-channel preview state uses one uniform block",
       and "typedef_source(PREVIEW_UBO_TYPEDEF)" in create_info_source
       and "for name in GPU_PAINT_CHANNEL_KEYS" not in create_info_source
       and "push_constant" not in create_info_source)
-check("preview UBO layout covers every registry channel exactly once",
+check("preview UBO layout covers every channel plus view depth",
       gpu_engine.PREVIEW_UBO_VEC4_COUNT
       == (gpu_engine.PREVIEW_UBO_CHANNEL_BASE
           + len(gpu_engine.GPU_PAINT_CHANNEL_KEYS)
-          * gpu_engine.PREVIEW_UBO_STRIDE)
+          * gpu_engine.PREVIEW_UBO_STRIDE + 1)
+      and gpu_engine.PREVIEW_UBO_VIEW_DEPTH
+      == gpu_engine.PREVIEW_UBO_VEC4_COUNT - 1
       and "vec4 values[%d]" % gpu_engine.PREVIEW_UBO_VEC4_COUNT
       in gpu_engine.PREVIEW_UBO_TYPEDEF)
 check("draw path updates and binds packed preview state",
@@ -165,6 +167,31 @@ check("resident preview uses biased framebuffer depth without prepass cracks",
       and "preview_depth_tex" not in src
       and "depth_test_set('LESS_EQUAL')" in draw_preview_source
       and "face_culling_set('BACK')" in draw_preview_source)
+check("preview clip matrix comes from gpu.matrix, not rv3d.perspective_matrix",
+      "preview_framebuffer_view_proj(s.view_proj)" in draw_preview_source
+      and '"view_proj_matrix": s.view_proj' not in draw_preview_source
+      and "gpu.matrix.get_projection_matrix()" in
+      inspect.getsource(gpu_engine.preview_framebuffer_view_proj)
+      and "get_model_view_matrix()" in
+      inspect.getsource(gpu_engine.preview_framebuffer_view_proj))
+try:
+    import gpu as _gpu
+    _gpu.matrix.get_projection_matrix()
+    _gpu_matrix_ok = True
+except Exception:
+    _gpu_matrix_ok = False
+if _gpu_matrix_ok:
+    check("preview clip matrix uses gpu.matrix when available",
+          gpu_engine.preview_framebuffer_view_proj("FALLBACK") != "FALLBACK")
+else:
+    check("preview clip matrix falls back when gpu.matrix is unavailable",
+          gpu_engine.preview_framebuffer_view_proj("FALLBACK") == "FALLBACK")
+check("resident preview rejects other meshes with private linear depth",
+      "occluder_ready > 0.5" in src
+      and "texelFetch(occluder_depth_tex" in src
+      and 'preview_globals["occluder_ready"]' in draw_preview_source
+      and 'preview_globals["view_depth_plane"]' in draw_preview_source
+      and 'uniform_sampler("occluder_depth_tex"' in draw_preview_source)
 check("topmost Lit preview owns the complete front surface",
       "fragColor = vec4(rgb, preview_opacity)" in src
       and "coverage = max(coverage" not in src)

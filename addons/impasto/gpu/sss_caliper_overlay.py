@@ -94,11 +94,14 @@ def resolve_target(context=None):
 
 def any_paint_caliper_enabled():
     """True if any Impasto Paint layer has the caliper toggle on."""
-    from .. import engine
-    for tree in engine.iter_stack_trees():
-        for layer in tree.impasto.layers:
-            if layer.layer_type == 'PAINT' and layer.show_sss_caliper:
-                return True
+    try:
+        from .. import engine
+        for tree in engine.iter_stack_trees():
+            for layer in tree.impasto.layers:
+                if layer.layer_type == 'PAINT' and layer.show_sss_caliper:
+                    return True
+    except Exception:
+        return False
     return False
 
 
@@ -132,7 +135,10 @@ def draw_handler_registered():
 
 
 def _tag_redraw_view3d():
-    wm = bpy.context.window_manager
+    try:
+        wm = bpy.context.window_manager
+    except Exception:
+        return
     if wm is None:
         return
     try:
@@ -235,6 +241,34 @@ def sync(context=None):
     _tag_redraw_view3d()
 
 
+def _deferred_sync():
+    """Run after enable: register() itself still has RestrictData."""
+    if _state.registered:
+        sync()
+    return None
+
+
+def _schedule_sync():
+    try:
+        if not bpy.app.timers.is_registered(_deferred_sync):
+            bpy.app.timers.register(_deferred_sync, first_interval=0.0)
+            return
+    except Exception:
+        pass
+    try:
+        sync()
+    except Exception:
+        pass
+
+
+def _cancel_deferred_sync():
+    try:
+        if bpy.app.timers.is_registered(_deferred_sync):
+            bpy.app.timers.unregister(_deferred_sync)
+    except Exception:
+        pass
+
+
 @persistent
 def _on_load_post(*_args):
     sync()
@@ -245,13 +279,14 @@ def register():
     _add_draw_handler()
     if _on_load_post not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(_on_load_post)
-    sync()
+    _schedule_sync()
 
 
 def unregister():
     _state.registered = False
     if _on_load_post in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load_post)
+    _cancel_deferred_sync()
     _stop_timer()
     _remove_draw_handler()
     _state.source = SSSCaliperSource()

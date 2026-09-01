@@ -40,6 +40,29 @@ try:
     sss_caliper_overlay.unregister()
     check("idle overlay register/unregister is safe in background", True)
 
+    class _RestrictData:
+        pass
+
+    saved_data = bpy.data
+    try:
+        bpy.data = _RestrictData()
+        check("restricted data has no node_groups",
+              not hasattr(bpy.data, "node_groups"))
+        check("stack discovery is empty while data is restricted",
+              list(engine.iter_stack_trees()) == [])
+        check("caliper scan is false while data is restricted",
+              not sss_caliper_overlay.any_paint_caliper_enabled())
+        sss_caliper_overlay.register()
+        check("idle overlay register succeeds while data is restricted", True)
+        sss_caliper_overlay.unregister()
+        impasto.register()
+        registered = True
+        check("package register succeeds while data is restricted", True)
+        impasto.unregister()
+        registered = False
+    finally:
+        bpy.data = saved_data
+
     source = overlays.SSSCaliperSource(
         cursor=(10.0, 20.0), obj_name="Missing",
         settings={"sss_caliper_enabled": False})

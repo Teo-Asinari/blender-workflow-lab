@@ -4,6 +4,24 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.36
+
+- Lit PBR and the other GPU live previews now use a private linear-depth
+  raster of the other visible meshes, so foreground objects continue to
+  occlude the painted surface around intersections.
+
+## 0.15.35
+
+- Enabling Impasto no longer fails with `'_RestrictData' object has no
+  attribute 'node_groups'`. The idle SSS caliper waited until after
+  register to read stacks, because Blender still restricts `bpy.data`
+  while an add-on is being enabled.
+
+## 0.15.34
+
+- GPU live previews now use the viewport's `gpu.matrix` projection rather
+  than `rv3d.perspective_matrix` for their overlay draw.
+
 ## 0.15.33
 
 - Image Stencil tooltip and in-session hint: toggle applies on the next

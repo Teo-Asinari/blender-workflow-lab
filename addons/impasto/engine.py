@@ -58,7 +58,12 @@ def is_stack_tree(tree):
 
 
 def iter_stack_trees():
-    for ng in bpy.data.node_groups:
+    try:
+        groups = bpy.data.node_groups
+    except Exception:
+        # register()/unregister() run under bpy's _RestrictData.
+        return
+    for ng in groups:
         if ng.bl_idname == "ShaderNodeTree" and is_stack_tree(ng):
             yield ng
 

@@ -126,6 +126,9 @@ from .gpu import uv_seams
 # Clip-space depth bias for the preview pass (same mechanism as
 # uv_island_overlay: pull toward the viewer by a w-scaled constant so
 # the painted preview wins z-fighting against the mesh's own surface).
+# The bias is a tiny NDC fraction; occlusion against *other* meshes
+# depends on matching the POST_VIEW framebuffer's clip matrix, not on
+# enlarging this value.
 CLIP_DEPTH_BIAS = 1e-4
 
 # Absolute floor for the linear view-space depth tolerance. The shader also
@@ -181,13 +184,13 @@ PREVIEW_UBO_NAME = "preview_params"
 PREVIEW_UBO_SLOT = 1
 PREVIEW_UBO_CHANNEL_BASE = 13
 PREVIEW_UBO_STRIDE = 6
-PREVIEW_UBO_VEC4_COUNT = (
-    PREVIEW_UBO_CHANNEL_BASE + 10 * PREVIEW_UBO_STRIDE)
+PREVIEW_UBO_VIEW_DEPTH = PREVIEW_UBO_CHANNEL_BASE + 10 * PREVIEW_UBO_STRIDE
+PREVIEW_UBO_VEC4_COUNT = PREVIEW_UBO_VIEW_DEPTH + 1
 PREVIEW_UBO_TYPEDEF = """
 struct ImpastoPreviewParams {
-    vec4 values[73];
+    vec4 values[%d];
 };
-"""
+""" % PREVIEW_UBO_VEC4_COUNT
 
 
 def _preview_ubo_aliases():
@@ -199,9 +202,11 @@ def _preview_ubo_aliases():
         "#define preview_mode int(preview_params.values[9].x)",
         "#define environment_ready preview_params.values[9].y",
         "#define base_normal_enabled preview_params.values[9].z",
+        "#define occluder_ready preview_params.values[9].w",
         "#define preview_lighting preview_params.values[10]",
         "#define preview_fill preview_params.values[11]",
         "#define base_normal_options preview_params.values[12].xy",
+        "#define view_depth_plane preview_params.values[%d]" % PREVIEW_UBO_VIEW_DEPTH,
     ]
     for i, name in enumerate(GPU_PAINT_CHANNEL_KEYS):
         n = PREVIEW_UBO_CHANNEL_BASE + i * PREVIEW_UBO_STRIDE
@@ -560,6 +565,10 @@ PREVIEW_VERT_SRC = """
 void main()
 {
     vec4 world = model_matrix * vec4(pos, 1.0);
+    /* view_proj_matrix is the POST_VIEW gpu.matrix projection @ view so
+     * hardware depth testing matches the overlay framebuffer. Other
+     * scene meshes are occluded in the fragment stage from a private
+     * linear-depth target; rv3d.perspective_matrix stays on the dab path. */
     gl_Position = view_proj_matrix * world;
     /* Depth bias: pull toward the viewer in clip space (w-scaled, same
      * mechanism as uv_island_overlay) so the preview coat wins
@@ -568,6 +577,7 @@ void main()
     uvInterp = uv;
     baseNormalUV = base_uv;
     worldPos = world.xyz;
+    viewDepth = dot(view_depth_plane, world);
     surfaceNormal = normalize(mat3(transpose(inverse(model_matrix))) * normal);
 }
 """ % CLIP_DEPTH_BIAS
@@ -747,6 +757,19 @@ vec4 apply_upper_transform(vec4 value, sampler2D coefficients)
 
 void main()
 {
+    /* POST_VIEW's framebuffer often lacks other scene meshes, so the
+     * opaque coat would cover objects in front. Compare linear view
+     * depth against a private raster of those meshes only — never the
+     * painted surface, which previously punched preview cracks. */
+    if (occluder_ready > 0.5) {
+        ivec2 size = textureSize(occluder_depth_tex, 0);
+        ivec2 p = clamp(ivec2(gl_FragCoord.xy), ivec2(0), size - ivec2(1));
+        float occluder = texelFetch(occluder_depth_tex, p, 0).r;
+        if (occluder > 0.0 && occluder < 1e29
+            && viewDepth > occluder + 1e-4) {
+            discard;
+        }
+    }
     vec4 base = resolve_stack_channel(
         base_color_tex, baseline_base_color_tex, baseline_base_color_value,
         baseline_base_color_is_texture, active_base_color,
@@ -1150,6 +1173,45 @@ def interpolate_dabs(x0, y0, x1, y1, spacing, leftover=0.0):
 
 def dab_spacing(radius_px):
     return _dab_spacing(radius_px, DAB_SPACING_FACTOR, MIN_DAB_SPACING_PX)
+
+
+def build_position_soup(obj):
+    """Return loop-triangle positions. No UVs; occluders may be unwrapped."""
+    import numpy as np
+
+    me = getattr(obj, "data", None)
+    if me is None or getattr(me, "vertices", None) is None:
+        return None
+    if len(me.vertices) == 0:
+        return None
+    co = np.empty(len(me.vertices) * 3, dtype=np.float32)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    if hasattr(me, "calc_loop_triangles"):
+        me.calc_loop_triangles()
+    tris = me.loop_triangles
+    if len(tris) == 0:
+        return None
+    tv = np.empty(len(tris) * 3, dtype=np.int32)
+    tris.foreach_get("vertices", tv)
+    return np.ascontiguousarray(co[tv], dtype=np.float32)
+
+
+def iter_preview_occluders(painted_name, objects):
+    """Yield other mesh objects that should hide the Lit PBR overlay."""
+    for obj in objects:
+        if obj is None or getattr(obj, "type", None) != "MESH":
+            continue
+        if getattr(obj, "name", None) == painted_name:
+            continue
+        try:
+            if obj.hide_get():
+                continue
+        except Exception:
+            pass
+        if getattr(obj, "hide_viewport", False):
+            continue
+        yield obj
 
 
 def build_mesh_soup(obj):
@@ -2049,6 +2111,7 @@ def preview_shader_create_info():
     iface.smooth('VEC2', "uvInterp")
     iface.smooth('VEC2', "baseNormalUV")
     iface.smooth('VEC3', "worldPos")
+    iface.smooth('FLOAT', "viewDepth")
     iface.smooth('VEC3', "surfaceNormal")
     info = gpu.types.GPUShaderCreateInfo()
     info.typedef_source(PREVIEW_UBO_TYPEDEF)
@@ -2072,9 +2135,11 @@ def preview_shader_create_info():
                                  16):
         info.sampler(index, 'FLOAT_2D', "baseline_" + name + "_tex")
     info.sampler(21, 'FLOAT_2D', "base_normal_tex")
-    for index, name in enumerate(
-            (key for key in GPU_PAINT_CHANNEL_KEYS if key != "normal"), 22):
+    upper_names = tuple(key for key in GPU_PAINT_CHANNEL_KEYS
+                        if key != "normal")
+    for index, name in enumerate(upper_names, 22):
         info.sampler(index, 'FLOAT_2D', "upper_" + name + "_tex")
+    info.sampler(22 + len(upper_names), 'FLOAT_2D', "occluder_depth_tex")
     info.vertex_in(0, 'VEC3', "pos")
     info.vertex_in(1, 'VEC2', "uv")
     info.vertex_in(2, 'VEC3', "normal")
@@ -2563,6 +2628,11 @@ class _Session:
         self.depth_depth_tex = None    # DEPTH_COMPONENT32F: z-testing
         self.depth_fb = None
         self.depth_fb_size = None      # (w, h) the depth FB was built at
+        self.occluder_tex = None       # R32F: other-mesh linear view depth
+        self.occluder_depth_tex = None
+        self.occluder_fb = None
+        self.occluder_batches = None   # ((name, batch), ...)
+        self.occluder_mesh_signature = None
         self.batch_dabs = None         # one pos+uv batch per shader
         self.batch_prepass = None      # pos only
         self.batch_preview = None      # pos + uv, composed surface overlay
@@ -3247,7 +3317,9 @@ def _release_gpu_references(s):
         "prepass_shader",
         "preview_shader", "preview_ubo", "preview_ubo_data",
         "paint_texs", "paint_fbs", "depth_color_tex",
-        "depth_depth_tex", "depth_fb", "batch_dabs", "batch_prepass",
+        "depth_depth_tex", "depth_fb", "occluder_tex",
+        "occluder_depth_tex", "occluder_fb", "occluder_batches",
+        "batch_dabs", "batch_prepass",
         "batch_preview", "neutral_tex", "copy_shader", "copy_batch",
         "single_fbs", "environment_tex", "base_normal_tex",
         "base_normal_gpu_ref", "stencil_tex", "stencil_preview_shader",
@@ -3275,6 +3347,7 @@ def _release_gpu_references(s):
         else:
             setattr(s, name, None)
     s.depth_fb_size = None
+    s.occluder_mesh_signature = None
     s.gutter_map_key = None
     s.gutter_diagnostics = None
     s.gpu_ready = False
@@ -4140,11 +4213,15 @@ def pack_preview_ubo(records, globals=None, data=None):
     data[8] = camera[:3] + (float(globals.get("preview_opacity", 1.0)),)
     data[9] = (float(globals.get("preview_mode", 0)),
                float(globals.get("environment_ready", 0.0)),
-               float(globals.get("base_normal_enabled", 0.0)), 0.0)
+               float(globals.get("base_normal_enabled", 0.0)),
+               float(globals.get("occluder_ready", 0.0)))
     data[10] = _vec4(globals.get("preview_lighting", (0.0, 0.0, 1.0, 0.0)))
     data[11] = _vec4(globals.get("preview_fill", (1.0, 0.0, 0.0, 0.0)))
     options = tuple(globals.get("base_normal_options", (1.0, 0.0)))
     data[12, :2] = options[:2]
+    plane = globals.get("view_depth_plane")
+    if plane is not None:
+        data[PREVIEW_UBO_VIEW_DEPTH] = _vec4(plane)
     for i, key in enumerate(GPU_PAINT_CHANNEL_KEYS):
         record = records.get(key, {})
         n = PREVIEW_UBO_CHANNEL_BASE + i * PREVIEW_UBO_STRIDE
@@ -4860,12 +4937,75 @@ def _mrt_probe_shader_create_info():
 # ---------------------------------------------------------------------------
 
 
+def _visible_occluder_objects(s):
+    context = bpy.context
+    view_layer = getattr(context, "view_layer", None)
+    if view_layer is None:
+        return ()
+    visible = []
+    for obj in iter_preview_occluders(s.obj_name, view_layer.objects):
+        try:
+            if not obj.visible_get():
+                continue
+        except Exception:
+            continue
+        visible.append(obj)
+    return tuple(visible)
+
+
+def _occluder_view_key(s):
+    parts = []
+    for obj in _visible_occluder_objects(s):
+        mw = obj.matrix_world
+        parts.append((
+            obj.name,
+            tuple(round(v, 5) for row in mw for v in row),
+        ))
+    return tuple(parts)
+
+
+def _occluder_mesh_signature(s, objects):
+    parts = []
+    for obj in objects:
+        mesh = getattr(obj, "data", None)
+        parts.append((
+            obj.name,
+            mesh.as_pointer() if mesh is not None else 0,
+            len(mesh.vertices) if mesh is not None else 0,
+        ))
+    return tuple(parts)
+
+
+def _ensure_occluder_batches(s, objects):
+    """Rebuild other-mesh position batches when their topology changes."""
+    signature = _occluder_mesh_signature(s, objects)
+    if (signature == s.occluder_mesh_signature
+            and s.occluder_batches is not None):
+        return
+    from gpu_extras.batch import batch_for_shader
+    batches = []
+    shader = s.prepass_shader
+    if shader is None:
+        s.occluder_batches = ()
+        s.occluder_mesh_signature = signature
+        return
+    for obj in objects:
+        coords = build_position_soup(obj)
+        if coords is None:
+            continue
+        batches.append((obj.name, batch_for_shader(
+            shader, 'TRIS', {"pos": coords})))
+    s.occluder_batches = tuple(batches)
+    s.occluder_mesh_signature = signature
+
+
 def _prepass_state_key(s, region, rv3d, obj):
     m = rv3d.perspective_matrix
     mw = obj.matrix_world
     return (region.width, region.height,
             tuple(round(v, 6) for row in m for v in row),
-            tuple(round(v, 6) for row in mw for v in row))
+            tuple(round(v, 6) for row in mw for v in row),
+            _occluder_view_key(s))
 
 
 def _update_prepass(s, region, rv3d):
@@ -4891,6 +5031,14 @@ def _update_prepass(s, region, rv3d):
             (w, h), format='DEPTH_COMPONENT32F')
         s.depth_fb = gpu.types.GPUFrameBuffer(
             depth_slot=s.depth_depth_tex, color_slots=(s.depth_color_tex,))
+        s.occluder_fb = None
+        s.occluder_tex = None
+        s.occluder_depth_tex = None
+        s.occluder_tex = gpu.types.GPUTexture((w, h), format='R32F')
+        s.occluder_depth_tex = gpu.types.GPUTexture(
+            (w, h), format='DEPTH_COMPONENT32F')
+        s.occluder_fb = gpu.types.GPUFrameBuffer(
+            depth_slot=s.occluder_depth_tex, color_slots=(s.occluder_tex,))
         s.depth_fb_size = (w, h)
 
     # Capture the matrices the prepass renders with: the dab shader must
@@ -4925,6 +5073,27 @@ def _update_prepass(s, region, rv3d):
         # Do not read the framebuffer here. A readback forces the CPU to wait
         # for the complete depth raster on every orbit/zoom frame. GPU command
         # ordering already makes later consumers observe this pass.
+    if s.occluder_fb is not None and s.prepass_shader is not None:
+        occluders = _visible_occluder_objects(s)
+        _ensure_occluder_batches(s, occluders)
+        with s.occluder_fb.bind():
+            s.occluder_fb.viewport_set(0, 0, w, h)
+            s.occluder_fb.clear(color=(1e30, 0.0, 0.0, 1.0), depth=1.0)
+            gpu.state.blend_set('NONE')
+            gpu.state.depth_test_set('LESS_EQUAL')
+            gpu.state.depth_mask_set(True)
+            gpu.state.face_culling_set('NONE')
+            sh = s.prepass_shader
+            sh.bind()
+            sh.uniform_float("view_proj_matrix", s.view_proj)
+            sh.uniform_float("view_depth_plane", s.view_depth_plane)
+            by_name = {obj.name: obj for obj in occluders}
+            for name, batch in (s.occluder_batches or ()):
+                other = by_name.get(name)
+                if other is None:
+                    continue
+                sh.uniform_float("model_matrix", other.matrix_world)
+                batch.draw(sh)
     s.prepass_ms = (time.perf_counter() - t0) * 1000.0
     s.prepass_key = key
     return s.prepass_ms
@@ -5816,6 +5985,28 @@ def _flush_session_gpu(s):
 # ---------------------------------------------------------------------------
 
 
+def preview_framebuffer_view_proj(fallback=None):
+    """Return the clip matrix that matches POST_VIEW framebuffer depth.
+
+    Builtin overlay shaders consume ``gpu.matrix`` (projection @ view).
+    ``RegionView3D.perspective_matrix`` is the 3D view's classic
+    win@view product and is correct for dab/prepass math against the
+    private linear-depth target, but it can disagree with the overlay
+    framebuffer's clip-space Z. Using it for the opaque Lit PBR coat
+    makes ``LESS_EQUAL`` pass for fragments that other meshes already
+    covered, so intersecting objects in front of the paint target
+    disappear.
+
+    Falls back to ``fallback`` when ``gpu.matrix`` is unavailable
+    (headless) or raises.
+    """
+    try:
+        return (gpu.matrix.get_projection_matrix()
+                @ gpu.matrix.get_model_view_matrix())
+    except Exception:
+        return fallback
+
+
 def _draw_composed_preview(s):
     """Draw a low-cost PBR approximation from all resident textures."""
     if s is not None and s.gpu_ready:
@@ -5837,7 +6028,7 @@ def _draw_composed_preview(s):
         camera_position = (0.0, 0.0, 10.0)
     preview_globals = {
         "model_matrix": s.model,
-        "view_proj_matrix": s.view_proj,
+        "view_proj_matrix": preview_framebuffer_view_proj(s.view_proj),
         "camera_position": tuple(camera_position),
         "preview_opacity": 1.0,
         "preview_mode": preview_mode_index(s.settings.get("preview_mode")),
@@ -5856,6 +6047,11 @@ def _draw_composed_preview(s):
     base_normal_enabled = s.base_normal_tex is not None
     preview_globals["base_normal_enabled"] = (
         1.0 if base_normal_enabled else 0.0)
+    occluder_ready = (s.occluder_tex is not None
+                      and s.view_depth_plane is not None)
+    preview_globals["occluder_ready"] = 1.0 if occluder_ready else 0.0
+    if s.view_depth_plane is not None:
+        preview_globals["view_depth_plane"] = s.view_depth_plane
     preview_globals["base_normal_options"] = (
         max(0.0, float(s.settings.get("base_normal_strength", 1.0))),
         1.0 if s.settings.get("base_normal_invert_green", False) else 0.0)
@@ -5902,6 +6098,8 @@ def _draw_composed_preview(s):
                            (s.environment_tex
                             if s.environment_tex is not None else fallback))
     shader.uniform_sampler("base_normal_tex", s.base_normal_tex or fallback)
+    shader.uniform_sampler("occluder_depth_tex",
+                           s.occluder_tex if occluder_ready else fallback)
     gpu.state.blend_set('ALPHA')
     gpu.state.depth_test_set('LESS_EQUAL')
     # The preview is a second draw of the complete mesh. It must write depth
