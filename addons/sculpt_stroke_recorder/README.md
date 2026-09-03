@@ -12,7 +12,7 @@ installs and `.blend` takes keep loading.
 
 This add-on is experimental. Rebuild the ZIP with
 `python scripts/package_addons.py sculpt_stroke_recorder` and install
-`dist/sculpt_stroke_recorder-0.3.4.zip` via **Edit > Preferences > Add-ons >
+`dist/sculpt_stroke_recorder-0.3.5.zip` via **Edit > Preferences > Add-ons >
 Install from Disk**, then enable **Stroke Recorder**. Copying or
 symlinking the `sculpt_stroke_recorder` folder into `scripts/addons/`
 remains a developer option. Impasto GPU capture needs Impasto 0.15.32+
@@ -32,6 +32,11 @@ mode, and live completed-stroke count. The sidebar also shows an alert state.
 Recording can also be started or stopped from the persistent **REC/STOP**
 control in the 3D Viewport header or with **Shift+Alt+R**, without opening the
 Stroke Recorder sidebar tab.
+
+Impasto recording does **not** require Blender Texture Paint mode or its
+workspace. While an Impasto GPU paint session is active, its stroke stream
+takes precedence over Blender's incidental object/tool mode and the recorder
+creates an `Impasto GPU` take.
 
 Replay is an Undo-enabled operation for native sculpt/paint and applies the
 recorded paths with the currently active brush of that mode. Impasto GPU

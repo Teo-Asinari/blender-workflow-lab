@@ -22,7 +22,7 @@ from bpy.props import (BoolProperty, CollectionProperty, IntProperty,
 bl_info = {
     "name": "Stroke Recorder",
     "author": "Teo Asinari",
-    "version": (0, 3, 4),
+    "version": (0, 3, 5),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > Stroke Recorder",
     "description": "Record native sculpt, texture-paint, and Impasto GPU "
@@ -403,11 +403,15 @@ def _prime_seen(context):
 def _mesh_record_kind(obj):
     if obj is None or obj.type != 'MESH':
         return None
+    # Impasto owns pointer strokes while its GPU session is live.  Blender's
+    # object mode is incidental here (and may still read TEXTURE_PAINT after a
+    # workspace/tool change), so never let that native mode misclassify an
+    # Impasto take or make Texture Paint appear to be a prerequisite.
+    if _impasto_session_active():
+        return KIND_IMPASTO
     kind = _MODE_KIND.get(obj.mode)
     if kind is not None:
         return kind
-    if _impasto_session_active():
-        return KIND_IMPASTO
     return None
 
 

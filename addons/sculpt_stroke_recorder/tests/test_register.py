@@ -158,6 +158,9 @@ started = gpu_engine.start_session(
               "brush_target_channel_keys": ("base_color",),
               "active_layer_uid": "layer"})
 check("headless Impasto GPU session starts", started)
+check("active Impasto session overrides incidental Texture Paint mode",
+      recorder._mesh_record_kind(SimpleNamespace(
+          type='MESH', mode='TEXTURE_PAINT')) == recorder.KIND_IMPASTO)
 check("Impasto GPU session starts a take from Object Mode",
       bpy.ops.sculpt_recorder.record_toggle() == {'FINISHED'})
 gpu_take = settings.takes[settings.active_take]

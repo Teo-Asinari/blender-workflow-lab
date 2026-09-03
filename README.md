@@ -41,7 +41,7 @@ again when you leave that folder. Workaround for Blender's `@` save-backup
 failure when Dropbox locks texture files. Not a per-folder pause: the whole
 client stops. Does not use Dropbox ignore (that would delete the cloud copy).
 
-### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.3.4
+### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.3.5
 
 Records completed native Sculpt Mode, Texture Paint, and Impasto GPU
 strokes—including pointer samples, pressure, radius, tilt, and timing—without
@@ -236,7 +236,7 @@ python scripts/package_addons.py impasto
 Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 `bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
 `uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
-`impasto-0.15.41.zip`, `sculpt_stroke_recorder-0.3.4.zip`,
+`impasto-0.15.41.zip`, `sculpt_stroke_recorder-0.3.5.zip`,
 `dropbox_blend_pause-0.1.1.zip`. Each ZIP has the
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
