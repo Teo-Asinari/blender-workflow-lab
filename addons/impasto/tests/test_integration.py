@@ -27,8 +27,28 @@ try:
     impasto.register()
     check("package registration",
           hasattr(bpy.types.ShaderNodeTree, "impasto"))
-    check("metadata", impasto.bl_info["version"] == (0, 15, 40))
-    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.40")
+    check("metadata", impasto.bl_info["version"] == (0, 15, 41))
+    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.41")
+    focused_prop = impasto.props.ImpastoLayer.bl_rna.properties[
+        "focused_paint_ui"]
+    check("focused painting UI is opt-in and clearly described",
+          focused_prop.default is False
+          and "restore" in focused_prop.description.lower())
+    fake_space = type("Space", (), {
+        "show_region_toolbar": True,
+        "show_region_tool_header": False,
+        "show_region_asset_shelf": True,
+    })()
+    prior_ui = impasto.focused_ui.hide(fake_space)
+    check("focused UI hides supported paint chrome",
+          not fake_space.show_region_toolbar
+          and not fake_space.show_region_tool_header
+          and not fake_space.show_region_asset_shelf)
+    impasto.focused_ui.restore(fake_space, prior_ui)
+    check("focused UI restores exact prior viewport state",
+          fake_space.show_region_toolbar
+          and not fake_space.show_region_tool_header
+          and fake_space.show_region_asset_shelf)
     check("extended brush sections collapse by default",
           not impasto.props.ImpastoLayer.bl_rna.properties[
               "ui_show_emission_paint"].default

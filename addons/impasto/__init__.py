@@ -4,7 +4,7 @@
 bl_info = {
     "name": "Impasto",
     "author": "Teo Asinari",
-    "version": (0, 15, 40),
+    "version": (0, 15, 41),
     "blender": (5, 1, 0),
     "location": "3D Viewport > Sidebar (N) > Impasto tab",
     "description": "Non-destructive PBR material layer stacks",
@@ -64,6 +64,10 @@ if "model" in locals():
         paint = importlib.reload(paint)
     else:
         from . import paint
+    if "focused_ui" in locals():
+        focused_ui = importlib.reload(focused_ui)
+    else:
+        from . import focused_ui
     if "operator_support" in locals():
         operator_support = importlib.reload(operator_support)
     else:
@@ -107,6 +111,7 @@ else:
     from . import gpu_engine
     from . import props
     from . import paint
+    from . import focused_ui
     from . import operator_support
     from . import flatten_export
     from . import ops

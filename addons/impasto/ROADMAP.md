@@ -53,7 +53,7 @@ texels with unpainted atlas gutters; qualify explicit gutter ownership and
 filter behavior at multiple zoom levels before declaring distant-view seams
 resolved.
 
-This is the authoritative list of open work for Impasto 0.15.40. Shipped work
+This is the authoritative list of open work for Impasto 0.15.41. Shipped work
 belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 ## Near-term

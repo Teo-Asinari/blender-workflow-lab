@@ -1535,6 +1535,14 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
             return {'CANCELLED'}
         paint.maybe_switch_material_preview(context)
 
+        self._focused_ui_space = None
+        self._focused_ui_state = {}
+        if layer.focused_paint_ui:
+            from . import focused_ui
+            self._focused_ui_space = context.space_data
+            self._focused_ui_state = focused_ui.hide(
+                self._focused_ui_space)
+
         self._region = region
         self._area = context.area
         self._tree_name = tree.name
@@ -1840,6 +1848,7 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
     def _finish(self, context):
         finish_t0 = time.perf_counter()
         stats = gpu_engine.stop_session(log_summary=False)
+        self._restore_focused_ui()
         timer_t0 = time.perf_counter()
         if self._timer is not None:
             context.window_manager.event_timer_remove(self._timer)
@@ -1856,6 +1865,13 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         if stats.get("had_session", False):
             gpu_engine.log_stop_telemetry(stats)
         return {'FINISHED'}
+
+    def _restore_focused_ui(self):
+        from . import focused_ui
+        focused_ui.restore(getattr(self, "_focused_ui_space", None),
+                           getattr(self, "_focused_ui_state", None))
+        self._focused_ui_space = None
+        self._focused_ui_state = {}
 
     # -- modal loop ----------------------------------------------------------
 
@@ -2012,6 +2028,7 @@ class IMPASTO_OT_gpu_paint(bpy.types.Operator):
         # where no owning viewport draw is guaranteed. Normal RMB/Esc exit
         # requests and completes a flush before resources are released.
         gpu_engine.stop_session()
+        self._restore_focused_ui()
         if getattr(self, "_timer", None) is not None:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None

@@ -259,6 +259,8 @@ class PaintPanelMixin:
                 subsurface.label(text="Radius sets relative RGB travel",
                                  icon='INFO')
 
+        paint.prop(layer, "focused_paint_ui", toggle=True,
+                   icon='FULLSCREEN_ENTER')
         row = paint.row()
         row.scale_y = 1.35
         row.enabled = not gpu_engine.session_active()

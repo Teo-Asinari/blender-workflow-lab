@@ -4,6 +4,14 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.41
+
+- Add an opt-in Focused Painting UI toggle beside the GPU Paint control. It
+  temporarily hides the invoking viewport's left toolbar, tool header, and
+  brush asset shelf, then restores their exact previous visibility on every
+  normal and cancellation exit path. Other viewports and the Impasto sidebar
+  remain unchanged.
+
 ## 0.15.40
 
 - Saved Stroke Material Presets now also update a global cross-project JSON

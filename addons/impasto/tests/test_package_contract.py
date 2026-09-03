@@ -19,6 +19,7 @@ PUBLIC_MODULES = (
     "model", "channel_paint", "debounce", "compat", "reconcile",
     "snapshot", "engine", "visibility", "brush_adapter", "tile_undo",
     "ibl", "preview_stack", "stencil", "gpu_engine", "props", "paint",
+    "focused_ui",
     "flatten_export", "ops", "ui_icons", "ui",
 )
 
@@ -96,6 +97,7 @@ PROPERTY_IDS = {
         "preview_base_normal_image", "preview_base_normal_uv_map",
         "preview_base_normal_strength", "preview_base_normal_invert_green",
         "experimental_uv_gutters", "experimental_conservative_seams",
+        "focused_paint_ui",
         "paint_workflow", "ui_show_channels", "ui_show_emission_channels",
         "ui_show_subsurface_channels", "ui_show_recent_colors",
         "ui_show_material_presets",

@@ -453,6 +453,12 @@ class ImpastoLayer(bpy.types.PropertyGroup):
         description="Experimental: paint a narrow face-clamped boundary "
                     "around touched UV seams to prevent texel-center gaps",
         default=True)
+    focused_paint_ui: BoolProperty(
+        name="Focused Painting UI",
+        description="While GPU painting, hide this viewport's left toolbar, "
+                    "tool header, and brush asset shelf; restore their exact "
+                    "previous visibility when painting stops",
+        default=False)
 
 
 class ImpastoChannel(bpy.types.PropertyGroup):

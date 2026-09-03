@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.40 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.15.41 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.
@@ -130,7 +130,7 @@ not GPU paint-canvas channels.
 ## Install
 
 Impasto currently targets Blender 5.1 and is experimental. Download
-`impasto-0.15.40.zip` from the
+`impasto-0.15.41.zip` from the
 [v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Impasto**. Copying `addons/impasto/` into `scripts/addons/`
@@ -151,6 +151,11 @@ Select a UV-unwrapped mesh with a node-based material, then open
    Smear, and Erase remember independent target selections, with **All** and
    **None** shortcuts.
 6. Start GPU Painting.
+
+Enable **Focused Painting UI** above the start button to temporarily hide the
+invoking viewport's left toolbar, tool header, and large brush asset shelf.
+Impasto restores their previous visibility when the GPU painting session ends;
+the sidebar and every other viewport remain untouched.
 7. Use LMB to paint. RMB or Esc flushes the resident canvases and exits.
 
 During a session:
