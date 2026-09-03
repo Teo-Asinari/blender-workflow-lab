@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import tempfile
 from types import SimpleNamespace
 
 import bpy
@@ -40,6 +41,8 @@ check("replay operator registered",
       hasattr(bpy.ops.sculpt_recorder, "replay"))
 check("sidebar panel registered",
       hasattr(bpy.types, "VIEW3D_PT_sculpt_stroke_recorder"))
+check("global 3D View recording shortcut registered",
+      len(recorder._keymaps) == 1)
 
 props = SimpleNamespace(stroke=[make_point()], mode='NORMAL',
                         brush_toggle='NONE', pen_flip=False)
@@ -77,6 +80,9 @@ check("replay sample preserves tablet data",
       and replay[0]["y_tilt"] == -0.2)
 check("paint replay samples share the same contract",
       recorder.replay_samples(paint_payload)[0]["pressure"] == 0.75)
+check("HUD stroke log summarizes samples, duration, and pressure",
+      recorder.stroke_log_summary(json.dumps(paint_payload))
+      == "1 samples · 0.25s · pressure 0.75–0.75")
 
 settings = bpy.context.scene.sculpt_stroke_recorder
 take = settings.takes.add()
@@ -87,6 +93,12 @@ stroke = take.strokes.add()
 stroke.payload = json.dumps(payload)
 check("nested take data stored on Scene",
       len(settings.takes) == 1 and len(settings.takes[0].strokes) == 1)
+sidecar = os.path.join(tempfile.gettempdir(), "stroke_recorder_test.json.gz")
+recorder.externalize_recordings(settings, sidecar)
+check("takes externalize to compressed sidecar",
+      not take.strokes and take.stroke_count == 1
+      and open(sidecar, "rb").read(2) == b"\x1f\x8b"
+      and len(recorder._take_records(take, recorder._read_sidecar(sidecar))) == 1)
 
 bpy.ops.mesh.primitive_uv_sphere_add()
 obj = bpy.context.active_object
@@ -97,10 +109,12 @@ bpy.ops.object.mode_set(mode='SCULPT')
 check("sculpt mode starts a take",
       bpy.ops.sculpt_recorder.record_toggle() == {'FINISHED'})
 check("recording flag set", settings.recording is True)
+check("recording overlay is registered", recorder._overlay_handle is not None)
 check("new take locked to SCULPT",
       settings.takes[settings.active_take].source_mode == "SCULPT")
 bpy.ops.sculpt_recorder.record_toggle()
 check("second toggle stops recording", settings.recording is False)
+check("recording overlay is removed", recorder._overlay_handle is None)
 
 bpy.ops.object.mode_set(mode='OBJECT')
 mat = bpy.data.materials.new("PaintMat")
@@ -174,4 +188,5 @@ check("legacy payload without kind is sculpt",
 recorder.unregister()
 check("scene settings unregistered",
       not hasattr(bpy.types.Scene, "sculpt_stroke_recorder"))
+check("global recording shortcut removed", not recorder._keymaps)
 print("SCULPT_STROKE_RECORDER_TESTS_PASSED")

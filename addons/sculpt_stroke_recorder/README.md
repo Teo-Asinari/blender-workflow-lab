@@ -2,8 +2,8 @@
 
 Records completed native Blender **Sculpt Mode**, **Texture Paint**, and
 **Impasto GPU** strokes without replacing those operators, then replays a
-take from the stored samples. Recordings are stored in the Scene and survive
-saving the `.blend`.
+take from the stored samples. Take metadata stays in the Scene; completed
+stroke streams are compressed into `<project>.blend.stroke-recordings.json.gz`.
 
 The Python module and ZIP id remain `sculpt_stroke_recorder` so existing
 installs and `.blend` takes keep loading.
@@ -12,7 +12,7 @@ installs and `.blend` takes keep loading.
 
 This add-on is experimental. Rebuild the ZIP with
 `python scripts/package_addons.py sculpt_stroke_recorder` and install
-`dist/sculpt_stroke_recorder-0.3.0.zip` via **Edit > Preferences > Add-ons >
+`dist/sculpt_stroke_recorder-0.3.4.zip` via **Edit > Preferences > Add-ons >
 Install from Disk**, then enable **Stroke Recorder**. Copying or
 symlinking the `sculpt_stroke_recorder` folder into `scripts/addons/`
 remains a developer option. Impasto GPU capture needs Impasto 0.15.32+
@@ -25,7 +25,13 @@ enabled as well.
 2. Open **3D Viewport > Sidebar (N) > Stroke Recorder**.
 3. Press **Record New Take**, work normally, then press **Stop Recording**.
 4. Select a take and press **Replay Take** in the same mode (or with GPU
-   painting still running, for Impasto takes).
+painting still running, for Impasto takes).
+
+While recording, the viewport shows a red **● REC** HUD with the take name,
+mode, and live completed-stroke count. The sidebar also shows an alert state.
+Recording can also be started or stopped from the persistent **REC/STOP**
+control in the 3D Viewport header or with **Shift+Alt+R**, without opening the
+Stroke Recorder sidebar tab.
 
 Replay is an Undo-enabled operation for native sculpt/paint and applies the
 recorded paths with the currently active brush of that mode. Impasto GPU
@@ -51,7 +57,7 @@ GPU pointer stream:
 - relative sample time and start marker;
 - stroke mode, pen flip, brush toggle, and a brush-settings snapshot.
 
-The snapshot is metadata in v0.3.0; replay deliberately uses the current
+The snapshot is metadata; replay deliberately uses the current
 brush so it does not silently change the artist's tool or depend on a
 missing brush asset.
 
@@ -60,6 +66,11 @@ texture paint.
 
 ## Current boundaries
 
+- Takes cannot currently be deleted through the add-on UI. Add confirmed take
+  deletion that also removes the take's payload from the compressed sidecar.
+- The `.blend` must be saved before a sidecar path exists. Unsaved projects
+  temporarily retain stroke streams in the Scene and externalize them after a
+  later recording is stopped once the project has been saved.
 - A take replays best on the same object and topology (sculpt), the same
   active paint canvas and view (texture paint), or the same Impasto GPU
   session, camera, and viewport size (Impasto GPU).

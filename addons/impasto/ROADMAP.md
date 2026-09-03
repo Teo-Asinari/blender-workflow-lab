@@ -53,7 +53,7 @@ texels with unpainted atlas gutters; qualify explicit gutter ownership and
 filter behavior at multiple zoom levels before declaring distant-view seams
 resolved.
 
-This is the authoritative list of open work for Impasto 0.15.38. Shipped work
+This is the authoritative list of open work for Impasto 0.15.40. Shipped work
 belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 ## Near-term
@@ -118,6 +118,11 @@ belongs in [CHANGELOG.md](CHANGELOG.md), not here.
 
 ## Workflow and UX
 
+- Develop the shared keyboard-first interaction layer described in
+  [`../../docs/KEYBOARD_FIRST_UX.md`](../../docs/KEYBOARD_FIRST_UX.md). In
+  particular, make Impasto GPU recording independent of Blender Texture Paint
+  mode and its redundant brush toolbar, and move frequent Impasto operations
+  out of the sidebar into mnemonic commands with clear HUD feedback.
 - Shipped in 0.15.26: SSS Caliper colored rings are available outside an
   active GPU painting session. The white brush ring remains GPU-paint-only.
 - Shipped in 0.15.27: Planar Viewport stencil scale and rotate handles.

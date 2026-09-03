@@ -27,8 +27,8 @@ try:
     impasto.register()
     check("package registration",
           hasattr(bpy.types.ShaderNodeTree, "impasto"))
-    check("metadata", impasto.bl_info["version"] == (0, 15, 38))
-    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.38")
+    check("metadata", impasto.bl_info["version"] == (0, 15, 40))
+    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.40")
     check("extended brush sections collapse by default",
           not impasto.props.ImpastoLayer.bl_rna.properties[
               "ui_show_emission_paint"].default
@@ -228,6 +228,24 @@ try:
           "Warm Metal" in tooltip and "Roughness 0.23" in tooltip
           and "Metallic 0.78" in tooltip and "Emission" in tooltip
           and "7.5" in tooltip, tooltip)
+    global_path = str(Path(tempfile.gettempdir()) /
+                      "impasto_global_material_presets_test.json")
+    original_global_path = impasto.ops._global_material_preset_path
+    impasto.ops._global_material_preset_path = lambda: global_path
+    try:
+        impasto.ops._write_global_material_preset(preset)
+        library_tree = bpy.data.node_groups.new(
+            "Impasto Global Preset Test", "ShaderNodeTree")
+        impasto.ops.load_global_material_presets(library_tree.impasto)
+        check("global material library round-trips preset bundles",
+              len(library_tree.impasto.material_presets) == 1
+              and library_tree.impasto.material_presets[0].label
+              == "Warm Metal"
+              and abs(library_tree.impasto.material_presets[0].roughness
+                      - 0.23) < 1e-6)
+    finally:
+        impasto.ops._global_material_preset_path = original_global_path
+        Path(global_path).unlink(missing_ok=True)
 
     erase_target_indices = [
         model.CHANNEL_ORDER[key]

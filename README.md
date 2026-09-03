@@ -41,11 +41,12 @@ again when you leave that folder. Workaround for Blender's `@` save-backup
 failure when Dropbox locks texture files. Not a per-folder pause: the whole
 client stops. Does not use Dropbox ignore (that would delete the cloud copy).
 
-### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.3.0
+### [Sculpt Stroke Recorder](addons/sculpt_stroke_recorder/) — v0.3.4
 
 Records completed native Sculpt Mode, Texture Paint, and Impasto GPU
 strokes—including pointer samples, pressure, radius, tilt, and timing—without
-replacing those paint paths. Takes are stored in the `.blend` and replay with
+replacing those paint paths. Take metadata is stored in the `.blend`; stroke
+streams use a compressed sidecar and replay with
 the current brush of the matching mode (an active Impasto GPU session for GPU
 takes). This is a deterministic workflow tool and a dataset foundation for
 later imitation-learning work.
@@ -96,7 +97,7 @@ default `0.1 m` voxel size from triggering a prohibitively expensive operation
 without review. A viewport guide draws grid slices and voxel-sized samples at
 all eight bounding-box corners so scale can be judged visually.
 
-### [Impasto](addons/impasto/) — v0.15.38 (active development)
+### [Impasto](addons/impasto/) — v0.15.40 (active development)
 
 A non-destructive Principled-PBR layer stack with Fill, Paint, and pass-through
 Group layers. One logical Paint layer can own separate Base Color, Metallic,
@@ -235,7 +236,7 @@ python scripts/package_addons.py impasto
 Archives land in `dist/` (gitignored) as `<id>-<version>.zip`, matching
 `bl_info` — for example `calipers-1.2.0.zip`, `kiln-1.2.1.zip`,
 `uv_island_overlay-1.5.2.zip`, `seam_path_tool-1.4.0.zip`,
-`impasto-0.15.38.zip`, `sculpt_stroke_recorder-0.3.0.zip`,
+`impasto-0.15.40.zip`, `sculpt_stroke_recorder-0.3.4.zip`,
 `dropbox_blend_pause-0.1.1.zip`. Each ZIP has the
 add-on folder at archive root (`impasto/__init__.py`, not `addons/impasto/...`).
 Tests, `__pycache__/`, probes, and non-runtime docs are excluded; runtime
@@ -255,6 +256,13 @@ Submitting to [Blender Extensions](https://extensions.blender.org/) is a
 later human step: Calipers, Kiln, and UV Island Overlay first, then Seam
 Path Tool. Impasto and Sculpt Stroke Recorder stay labeled experimental.
 Dropbox Blend Pause is not for that platform (it quits Dropbox.exe).
+
+## Keyboard-first UX direction
+
+The project is exploring a
+[keyboard-first, Vim-style interaction layer](docs/KEYBOARD_FIRST_UX.md) so
+frequent Impasto and recording work does not depend on sidebar button hunting
+or Blender's redundant native paint controls.
 
 ## License
 

@@ -187,6 +187,9 @@ class IMPASTO_OT_stack_init(bpy.types.Operator):
             for key in keys:
                 ch = state.channels.add()
                 ch.name = key
+            preferences = impasto_preferences(context)
+            if preferences is not None and preferences.global_material_presets:
+                load_global_material_presets(state)
             # remember the Principled links we are about to displace so
             # Remove Stack can restore the material (ori_bsdf pattern).
             displaced = []
@@ -956,6 +959,57 @@ _MATERIAL_PRESET_FIELDS = (
 )
 
 
+def _global_material_preset_path():
+    directory = bpy.utils.user_resource('CONFIG', path="impasto", create=True)
+    return os.path.join(directory, "material_presets.json")
+
+
+def _preset_dict(preset):
+    data = {"label": preset.label}
+    for _layer_name, preset_name in _MATERIAL_PRESET_FIELDS:
+        value = getattr(preset, preset_name)
+        data[preset_name] = (list(value) if not isinstance(value, str)
+                             and hasattr(value, "__len__") else value)
+    return data
+
+
+def _read_global_material_presets():
+    try:
+        with open(_global_material_preset_path(), "r", encoding="utf-8") as stream:
+            data = json.load(stream)
+        return list(data.get("presets", ()))
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def _write_global_material_preset(preset):
+    records = _read_global_material_presets()
+    record = _preset_dict(preset)
+    records = [item for item in records if item.get("label") != preset.label]
+    records.append(record)
+    path = _global_material_preset_path()
+    temporary = path + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as stream:
+        json.dump({"schema": 1, "presets": records}, stream,
+                  separators=(",", ":"))
+    os.replace(temporary, path)
+
+
+def load_global_material_presets(stack):
+    """Seed a new stack from the cross-project preset library."""
+    existing = {preset.label for preset in stack.material_presets}
+    for record in _read_global_material_presets():
+        label = str(record.get("label") or "Material")
+        if label in existing:
+            continue
+        preset = stack.material_presets.add()
+        preset.label = label
+        for _layer_name, preset_name in _MATERIAL_PRESET_FIELDS:
+            if preset_name in record:
+                setattr(preset, preset_name, record[preset_name])
+        existing.add(label)
+
+
 def capture_material_preset(preset, layer):
     """Copy every brush-material value into a persistent preset."""
     for layer_name, preset_name in _MATERIAL_PRESET_FIELDS:
@@ -1007,6 +1061,13 @@ class IMPASTO_OT_material_preset_capture(bpy.types.Operator):
         preset = tree.impasto.material_presets.add()
         preset.label = self.label.strip() or "Material"
         capture_material_preset(preset, layer)
+        preferences = impasto_preferences(context)
+        if preferences is not None and preferences.global_material_presets:
+            try:
+                _write_global_material_preset(preset)
+            except OSError as exc:
+                self.report({'WARNING'}, "Saved in blend, not global library: %s"
+                            % exc)
         return {'FINISHED'}
 
 

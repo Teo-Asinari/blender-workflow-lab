@@ -4,12 +4,15 @@
 Native strokes are observed in Blender's operator history after
 ``SCULPT_OT_brush_stroke`` or ``PAINT_OT_image_paint`` completes. Impasto GPU
 strokes are received from ``impasto.gpu_engine`` at pen-up. The recorder never
-replaces those operators. Recordings are stored on the Scene and survive
-saving the .blend.
+replaces those operators. Take metadata stays on the Scene; stroke streams
+move to a compressed sidecar beside a saved .blend.
 """
 
+import gzip
 import json
+import os
 import traceback
+import uuid
 
 import bpy
 from bpy.props import (BoolProperty, CollectionProperty, IntProperty,
@@ -19,7 +22,7 @@ from bpy.props import (BoolProperty, CollectionProperty, IntProperty,
 bl_info = {
     "name": "Stroke Recorder",
     "author": "Teo Asinari",
-    "version": (0, 3, 0),
+    "version": (0, 3, 4),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > Stroke Recorder",
     "description": "Record native sculpt, texture-paint, and Impasto GPU "
@@ -30,6 +33,8 @@ bl_info = {
 
 _TIMER_INTERVAL = 0.05
 _seen_operator_pointers = set()
+_overlay_handle = None
+_keymaps = []
 
 _SAMPLE_FIELDS = (
     "name", "location", "mouse", "mouse_event", "pressure", "size",
@@ -231,10 +236,16 @@ class SCULPTREC_PG_recording(bpy.types.PropertyGroup):
     strokes: CollectionProperty(type=SCULPTREC_PG_stroke)
     object_name: StringProperty()
     source_mode: StringProperty(default="SCULPT")
+    storage_id: StringProperty(options={'HIDDEN'})
+    stroke_count: IntProperty(default=0, min=0)
 
 
 class SCULPTREC_PG_settings(bpy.types.PropertyGroup):
     recording: BoolProperty(default=False, options={'SKIP_SAVE'})
+    show_hud_log: BoolProperty(
+        name="Show Stroke Log",
+        description="Show recent completed strokes in the recording HUD",
+        default=True)
     takes: CollectionProperty(type=SCULPTREC_PG_recording)
     active_take: IntProperty(default=0, min=0)
 
@@ -244,6 +255,135 @@ def _active_take(settings):
         return None
     index = min(max(settings.active_take, 0), len(settings.takes) - 1)
     return settings.takes[index]
+
+
+def _tag_view3d_redraw():
+    for window in getattr(bpy.context.window_manager, "windows", ()):
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+
+
+def _draw_recording_overlay():
+    settings = getattr(bpy.context.scene, "sculpt_stroke_recorder", None)
+    if settings is None or not settings.recording:
+        return
+    take = _active_take(settings)
+    if take is None:
+        return
+    import blf
+    count = take.stroke_count + len(take.strokes)
+    mode = _KIND_LABEL[_take_kind(take)]
+    region = bpy.context.region
+    top = float(region.height - 32) if region is not None else 120.0
+    blf.size(0, 16)
+    blf.color(0, 1.0, 0.08, 0.05, 1.0)
+    blf.position(0, 24, top, 0)
+    blf.draw(0, "● REC")
+    blf.size(0, 12)
+    blf.color(0, 1.0, 1.0, 1.0, 0.95)
+    blf.position(0, 24, top - 19, 0)
+    blf.draw(0, "%s · %s · %d stroke%s" % (
+        take.name, mode, count, "" if count == 1 else "s"))
+    if settings.show_hud_log:
+        records = _take_records(take)[-6:]
+        blf.size(0, 11)
+        blf.color(0, 0.9, 0.9, 0.9, 0.9)
+        first = count - len(records) + 1
+        for offset, record in enumerate(records):
+            blf.position(0, 24, top - 37 - offset * 14, 0)
+            blf.draw(0, "%d  %s" % (
+                first + offset, stroke_log_summary(record.get("payload", ""))))
+
+
+def stroke_log_summary(payload):
+    """Compact human-readable sanity check for one recorded stroke."""
+    try:
+        data = json.loads(payload) if isinstance(payload, str) else payload
+        samples = list(data.get("samples", ()))
+    except (TypeError, ValueError):
+        return "unreadable stroke"
+    if not samples:
+        return "0 samples"
+    pressures = [float(item.get("pressure", 1.0)) for item in samples]
+    duration = max(float(item.get("time", 0.0)) for item in samples)
+    return "%d samples · %.2fs · pressure %.2f–%.2f" % (
+        len(samples), duration, min(pressures), max(pressures))
+
+
+def _add_recording_overlay():
+    global _overlay_handle
+    if _overlay_handle is not None:
+        return
+    try:
+        _overlay_handle = bpy.types.SpaceView3D.draw_handler_add(
+            _draw_recording_overlay, (), 'WINDOW', 'POST_PIXEL')
+    except Exception:
+        _overlay_handle = None
+
+
+def _remove_recording_overlay():
+    global _overlay_handle
+    if _overlay_handle is not None:
+        try:
+            bpy.types.SpaceView3D.draw_handler_remove(
+                _overlay_handle, 'WINDOW')
+        except Exception:
+            pass
+    _overlay_handle = None
+
+
+def sidecar_path():
+    """Compressed recording path beside the saved blend, or empty unsaved."""
+    return (bpy.data.filepath + ".stroke-recordings.json.gz"
+            if bpy.data.filepath else "")
+
+
+def _read_sidecar(path=None):
+    path = path or sidecar_path()
+    if not path or not os.path.isfile(path):
+        return {"schema": 1, "takes": {}}
+    with gzip.open(path, "rt", encoding="utf-8") as stream:
+        data = json.load(stream)
+    return data if isinstance(data, dict) else {"schema": 1, "takes": {}}
+
+
+def _take_records(take, sidecar=None):
+    if take.strokes:
+        return [{"payload": item.payload, "brush": item.brush}
+                for item in take.strokes]
+    stored = (sidecar or _read_sidecar()).get("takes", {}).get(
+        take.storage_id, {})
+    return list(stored.get("strokes", ()))
+
+
+def externalize_recordings(settings, path=None):
+    """Write all take streams to gzip and remove their embedded duplicates."""
+    path = path or sidecar_path()
+    if not path:
+        return ""
+    existing = _read_sidecar(path)
+    entries = existing.setdefault("takes", {})
+    active_ids = set()
+    for take in settings.takes:
+        if not take.storage_id:
+            take.storage_id = uuid.uuid4().hex
+        active_ids.add(take.storage_id)
+        records = _take_records(take, existing)
+        take.stroke_count = len(records)
+        entries[take.storage_id] = {
+            "name": take.name, "object_name": take.object_name,
+            "source_mode": take.source_mode, "strokes": records,
+        }
+    existing["takes"] = {key: value for key, value in entries.items()
+                         if key in active_ids}
+    temporary = path + ".tmp"
+    with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
+        json.dump(existing, stream, separators=(",", ":"))
+    os.replace(temporary, path)
+    for take in settings.takes:
+        take.strokes.clear()
+    return path
 
 
 def _operator_pointer(operator):
@@ -315,6 +455,7 @@ def _record_timer():
         if settings is None or not settings.recording:
             return None
         _capture_completed(bpy.context)
+        _tag_view3d_redraw()
         return _TIMER_INTERVAL
     except Exception:
         print("[sculpt_stroke_recorder] capture failed:")
@@ -411,7 +552,16 @@ class SCULPTREC_OT_record_toggle(bpy.types.Operator):
         if settings.recording:
             _capture_completed(context)
             settings.recording = False
-            self.report({'INFO'}, "Stroke recording stopped")
+            _remove_recording_overlay()
+            _tag_view3d_redraw()
+            try:
+                path = externalize_recordings(settings)
+            except (OSError, ValueError) as exc:
+                self.report({'WARNING'}, "Recording kept in blend: %s" % exc)
+                return {'FINISHED'}
+            self.report({'INFO'}, ("Saved compressed recording sidecar"
+                                   if path else
+                                   "Recording kept in blend until file is saved"))
             return {'FINISHED'}
         obj = context.active_object
         kind = _mesh_record_kind(obj)
@@ -424,9 +574,12 @@ class SCULPTREC_OT_record_toggle(bpy.types.Operator):
         take.name = "Take %03d" % len(settings.takes)
         take.object_name = obj.name
         take.source_mode = _KIND_MODE[kind]
+        take.storage_id = uuid.uuid4().hex
         settings.active_take = len(settings.takes) - 1
         _prime_seen(context)
         settings.recording = True
+        _add_recording_overlay()
+        _tag_view3d_redraw()
         if kind == KIND_IMPASTO:
             _bind_impasto_listener()
         _ensure_timer()
@@ -447,21 +600,22 @@ class SCULPTREC_OT_replay(bpy.types.Operator):
         obj = context.active_object
         take = _active_take(settings) if settings is not None else None
         if (settings is None or settings.recording or take is None
-                or not take.strokes):
+                or not (take.strokes or take.stroke_count)):
             return False
         return _take_matches_context(take, obj)
 
     def execute(self, context):
         take = _active_take(context.scene.sculpt_stroke_recorder)
-        if take is None or not take.strokes:
+        records = _take_records(take) if take is not None else []
+        if take is None or not records:
             self.report({'WARNING'}, "Selected take contains no strokes")
             return {'CANCELLED'}
         if _take_kind(take) == KIND_IMPASTO:
-            return self._start_impasto_replay(context, take)
+            return self._start_impasto_replay(context, take, records)
         replayed = 0
         try:
-            for stroke in take.strokes:
-                data = json.loads(stroke.payload)
+            for stroke in records:
+                data = json.loads(stroke["payload"])
                 if _invoke_replay(data):
                     replayed += 1
         except RuntimeError as exc:
@@ -472,13 +626,14 @@ class SCULPTREC_OT_replay(bpy.types.Operator):
                     % (replayed, _KIND_LABEL[kind]))
         return {'FINISHED'}
 
-    def _start_impasto_replay(self, context, take):
+    def _start_impasto_replay(self, context, take, records):
         if not _impasto_session_active():
             self.report({'WARNING'},
                         "Start Impasto GPU painting to replay this take")
             return {'CANCELLED'}
         self._replay_index = 0
         self._replayed = 0
+        self._replay_records = records
         self._timer = None
         self._region = getattr(context, "region", None)
         wm = context.window_manager
@@ -490,7 +645,7 @@ class SCULPTREC_OT_replay(bpy.types.Operator):
         self._timer = wm.event_timer_add(_TIMER_INTERVAL, window=win)
         wm.modal_handler_add(self)
         self.report({'INFO'}, "Replaying %d Impasto GPU stroke(s)"
-                    % len(take.strokes))
+                    % len(records))
         return {'RUNNING_MODAL'}
 
     def _stop_impasto_replay(self, context):
@@ -516,13 +671,14 @@ class SCULPTREC_OT_replay(bpy.types.Operator):
             if self._region is not None:
                 self._region.tag_redraw()
             return {'RUNNING_MODAL'}
-        if self._replay_index >= len(take.strokes):
+        if self._replay_index >= len(self._replay_records):
             self._stop_impasto_replay(context)
             self.report({'INFO'}, "Replayed %d Impasto GPU stroke(s)"
                         % self._replayed)
             return {'FINISHED'}
         try:
-            data = json.loads(take.strokes[self._replay_index].payload)
+            data = json.loads(
+                self._replay_records[self._replay_index]["payload"])
             if replay_impasto_payload(data):
                 self._replayed += 1
         except (RuntimeError, ValueError, TypeError) as exc:
@@ -547,6 +703,10 @@ class SCULPTREC_OT_remove_take(bpy.types.Operator):
         index = min(settings.active_take, len(settings.takes) - 1)
         settings.takes.remove(index)
         settings.active_take = max(0, min(index, len(settings.takes) - 1))
+        try:
+            externalize_recordings(settings)
+        except (OSError, ValueError):
+            pass
         return {'FINISHED'}
 
 
@@ -556,7 +716,8 @@ class SCULPTREC_UL_takes(bpy.types.UIList):
         row = layout.row(align=True)
         row.prop(item, "name", text="", emboss=False, icon='REC')
         kind = _MODE_KIND.get(item.source_mode, KIND_SCULPT)
-        row.label(text="%d %s" % (len(item.strokes), _KIND_LABEL[kind]))
+        count = len(item.strokes) or item.stroke_count
+        row.label(text="%d %s" % (count, _KIND_LABEL[kind]))
 
 
 class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
@@ -568,6 +729,10 @@ class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        version = ".".join(str(part) for part in bl_info["version"])
+        header = layout.row()
+        header.alignment = 'RIGHT'
+        header.label(text="Stroke Recorder " + version, icon='REC')
         settings = context.scene.sculpt_stroke_recorder
         obj = context.active_object
         kind = _mesh_record_kind(obj)
@@ -577,6 +742,17 @@ class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
             SCULPTREC_OT_record_toggle.bl_idname,
             text="Stop Recording" if settings.recording else "Record New Take",
             icon='PAUSE' if settings.recording else 'REC')
+        if settings.recording:
+            take = _active_take(settings)
+            status = layout.box()
+            status.alert = True
+            status.label(text="RECORDING", icon='REC')
+            if take is not None:
+                count = take.stroke_count + len(take.strokes)
+                status.label(text="%s · %d stroke%s" % (
+                    _KIND_LABEL[_take_kind(take)], count,
+                    "" if count == 1 else "s"))
+            status.prop(settings, "show_hud_log", toggle=True)
         if kind is None:
             layout.label(
                 text="Sculpt, Texture Paint, or Impasto GPU to record",
@@ -588,7 +764,7 @@ class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
         matching = _take_matches_context(take, obj)
         row = layout.row(align=True)
         row.enabled = matching and not settings.recording \
-            and take is not None and bool(take.strokes)
+            and take is not None and bool(take.strokes or take.stroke_count)
         row.operator(SCULPTREC_OT_replay.bl_idname, icon='PLAY')
         remove = row.row(align=True)
         remove.enabled = take is not None and not settings.recording
@@ -612,6 +788,26 @@ class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
             else:
                 layout.label(text="Replay uses the current %s brush"
                              % _KIND_LABEL[take_kind])
+        path = sidecar_path()
+        layout.label(text=(os.path.basename(path) if path else
+                           "Save the .blend to enable compressed sidecar"),
+                     icon='FILE_ARCHIVE')
+
+
+def _draw_view3d_header(self, context):
+    """Persistent recording control independent of the active sidebar tab."""
+    settings = getattr(context.scene, "sculpt_stroke_recorder", None)
+    if settings is None:
+        return
+    supported = _mesh_record_kind(context.active_object) is not None
+    row = self.layout.row(align=True)
+    row.enabled = supported or settings.recording
+    row.alert = settings.recording
+    row.operator(
+        SCULPTREC_OT_record_toggle.bl_idname,
+        text="STOP" if settings.recording else "REC",
+        icon='PAUSE' if settings.recording else 'REC',
+        depress=settings.recording)
 
 
 _CLASSES = (
@@ -631,6 +827,14 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.Scene.sculpt_stroke_recorder = bpy.props.PointerProperty(
         type=SCULPTREC_PG_settings)
+    bpy.types.VIEW3D_HT_header.append(_draw_view3d_header)
+    keyconfig = getattr(bpy.context.window_manager.keyconfigs, "addon", None)
+    if keyconfig is not None:
+        keymap = keyconfig.keymaps.new(name='3D View', space_type='VIEW_3D')
+        item = keymap.keymap_items.new(
+            SCULPTREC_OT_record_toggle.bl_idname, 'R', 'PRESS',
+            shift=True, alt=True)
+        _keymaps.append((keymap, item))
     _bind_impasto_listener()
 
 
@@ -639,6 +843,14 @@ def unregister():
                        "sculpt_stroke_recorder", None)
     if settings is not None:
         settings.recording = False
+    _remove_recording_overlay()
+    try:
+        bpy.types.VIEW3D_HT_header.remove(_draw_view3d_header)
+    except Exception:
+        pass
+    for keymap, item in _keymaps:
+        keymap.keymap_items.remove(item)
+    _keymaps.clear()
     _unbind_impasto_listener()
     if bpy.app.timers.is_registered(_record_timer):
         bpy.app.timers.unregister(_record_timer)

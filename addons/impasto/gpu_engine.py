@@ -3734,6 +3734,8 @@ def _draw_pixel():
     try:
         t0 = time.perf_counter() if passive else None
         _draw_stencil_preview(s, region)
+        gpu_overlays.draw_stencil_sampling_hud(
+            s, region, bpy.context.region_data)
         if passive:
             s.hover_stats.add("stencil", (time.perf_counter() - t0) * 1000.0)
             t0 = time.perf_counter()

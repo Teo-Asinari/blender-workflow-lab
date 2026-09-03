@@ -523,7 +523,7 @@ class ImpastoStack(bpy.types.PropertyGroup):
     default_canvas_size: EnumProperty(
         name="Canvas Resolution", items=CANVAS_SIZE_ITEMS, default='2048',
         description="Resolution for newly created Paint canvases; existing "
-                    "images are not resized")
+                    "canvases are unchanged")
 
     def active_layer(self):
         for ly in self.layers:
@@ -555,10 +555,16 @@ class ImpastoPreferences(bpy.types.AddonPreferences):
                     "last successfully loaded stencil folder is remembered",
         subtype='DIR_PATH',
         default="")
+    global_material_presets: BoolProperty(
+        name="Share Saved Material Presets Across Projects",
+        description="Automatically add saved Stroke Material Presets to "
+                    "Impasto's global library and seed new material stacks",
+        default=True)
 
     def draw(self, context):
         self.layout.prop(self, "auto_material_preview")
         self.layout.prop(self, "stencil_directory")
+        self.layout.prop(self, "global_material_presets")
 
 
 _classes = (

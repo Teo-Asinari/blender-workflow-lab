@@ -113,6 +113,9 @@ def draw_recent_colors(layout, layer, channel_keys):
 
 def draw_material_presets(layout, layer):
     """Compact persistent palette; node sockets provide sphere thumbnails."""
+    preferences = ops.impasto_preferences(bpy.context)
+    if preferences is not None and preferences.global_material_presets:
+        ops.load_global_material_presets(layer.id_data.impasto)
     box = layout.box()
     header = box.row(align=True)
     header.prop(

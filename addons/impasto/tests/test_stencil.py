@@ -143,6 +143,18 @@ try:
     check("viewport stencil opacity is independent from paint strength",
           'settings.get("stencil_preview_opacity", 0.38)' in overlay_source
           and 'settings.get("stencil_opacity"' not in overlay_source)
+    ratio = gpu_engine.gpu_overlays.stencil_sampling_ratio(
+        1024 * 1024, 512 * 512, 1024, 0.25, 512 * 512)
+    check("sampling assistant compares source pixels with local paint texels",
+          abs(ratio - 2.0) < 1e-6
+          and gpu_engine.gpu_overlays.stencil_sampling_status(ratio)[1]
+          == 'WARN')
+    matched = gpu_engine.gpu_overlays.stencil_sampling_ratio(
+        512 * 512, 512 * 512, 1024, 0.25, 512 * 512)
+    check("sampling assistant recognizes a locally matched footprint",
+          abs(matched - 1.0) < 1e-6
+          and gpu_engine.gpu_overlays.stencil_sampling_status(matched)[1]
+          == 'OK')
 
     source = gpu_engine.dab_frag_src(4)
     check("dab shader samples one shared stencil factor",

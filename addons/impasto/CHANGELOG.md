@@ -4,6 +4,19 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.15.40
+
+- Saved Stroke Material Presets now also update a global cross-project JSON
+  library by default. New Impasto stacks inherit that library; users can opt
+  out in add-on preferences while project-local presets remain in the blend.
+
+## 0.15.39
+
+- Active image stencils now show a sampling-assistant HUD at the cursor. It
+  compares displayed stencil pixels with the local UV texel density of the
+  painted face and reports matched sampling, excess stencil detail, severe
+  detail loss, or a lower-resolution stencil as zoom and placement change.
+
 ## 0.15.38
 
 - New Paint layers enable Conservative UV Seam Paint by default. It remains

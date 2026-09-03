@@ -84,6 +84,114 @@ def draw_stencil_preview(session, region, inspect_active,
         gpu.state.blend_set(prior_blend)
 
 
+def _polygon_area_2d(points):
+    """Unsigned shoelace area for projected screen or UV polygons."""
+    if len(points) < 3:
+        return 0.0
+    return abs(sum(
+        points[i][0] * points[(i + 1) % len(points)][1]
+        - points[(i + 1) % len(points)][0] * points[i][1]
+        for i in range(len(points)))) * 0.5
+
+
+def stencil_sampling_ratio(stencil_pixels, stencil_screen_area,
+                           canvas_size, face_uv_area, face_screen_area):
+    """Stencil samples per destination paint texel at one projected face."""
+    if (stencil_screen_area <= 1e-8 or face_screen_area <= 1e-8
+            or face_uv_area <= 1e-12 or canvas_size <= 0):
+        return None
+    source_per_screen = (float(stencil_pixels) / stencil_screen_area) ** 0.5
+    paint_per_screen = (
+        float(canvas_size) * float(canvas_size) * face_uv_area
+        / face_screen_area) ** 0.5
+    if paint_per_screen <= 1e-8:
+        return None
+    return source_per_screen / paint_per_screen
+
+
+def stencil_sampling_status(ratio):
+    """Stable label and severity for the sampling assistant HUD."""
+    if ratio is None:
+        return ("No UV density at cursor", 'UNKNOWN')
+    if ratio >= 3.0:
+        return ("Severe detail loss", 'SEVERE')
+    if ratio >= 1.5:
+        return ("Stencil detail exceeds paint resolution", 'WARN')
+    if ratio <= 0.5:
+        return ("Stencil is lower-resolution than paint", 'LOW')
+    return ("Sampling is reasonably matched", 'OK')
+
+
+def _draw_stencil_sampling_hud(session, region, rv3d):
+    """Compare displayed stencil pixels with local paint texels at cursor."""
+    if (session.cursor is None
+            or not session.settings.get("stencil_enabled", False)
+            or not session.settings.get("stencil_image_name", "")):
+        return
+    obj = bpy.data.objects.get(session.obj_name)
+    image = bpy.data.images.get(session.settings["stencil_image_name"])
+    if obj is None or image is None or obj.type != 'MESH' or rv3d is None:
+        return
+    from bpy_extras import view3d_utils
+    from mathutils import Vector
+    cursor = Vector(session.cursor)
+    origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, cursor)
+    direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, cursor)
+    inverse = obj.matrix_world.inverted_safe()
+    hit, _location, _normal, polygon_index = obj.ray_cast(
+        inverse @ origin, (inverse.to_3x3() @ direction).normalized())
+    mesh = obj.data
+    uv_layer = mesh.uv_layers.active
+    if not hit or uv_layer is None or not 0 <= polygon_index < len(mesh.polygons):
+        return
+    polygon = mesh.polygons[polygon_index]
+    screen_points, uv_points = [], []
+    for loop_index in polygon.loop_indices:
+        vertex = mesh.vertices[mesh.loops[loop_index].vertex_index]
+        screen = view3d_utils.location_3d_to_region_2d(
+            region, rv3d, obj.matrix_world @ vertex.co)
+        if screen is None:
+            return
+        screen_points.append(tuple(screen))
+        uv_points.append(tuple(uv_layer.data[loop_index].uv))
+    quad = stencil_preview_quad(
+        (region.width, region.height), session.cursor,
+        max(1.0, float(session.settings.get("radius", 50.0))),
+        session.settings)
+    if quad is None:
+        return
+    ratio = stencil_sampling_ratio(
+        max(1, int(image.size[0])) * max(1, int(image.size[1])),
+        _polygon_area_2d(quad), session.size,
+        _polygon_area_2d(uv_points), _polygon_area_2d(screen_points))
+    label, severity = stencil_sampling_status(ratio)
+    colors = {
+        'OK': (0.38, 1.0, 0.48, 1.0),
+        'LOW': (0.55, 0.78, 1.0, 1.0),
+        'WARN': (1.0, 0.72, 0.20, 1.0),
+        'SEVERE': (1.0, 0.25, 0.16, 1.0),
+        'UNKNOWN': (0.8, 0.8, 0.8, 1.0),
+    }
+    import blf
+    x, y = session.cursor[0] + 18, session.cursor[1] - 34
+    blf.size(0, 12)
+    blf.color(0, *colors[severity])
+    blf.position(0, x, y, 0)
+    ratio_text = ("%.2g stencil px / paint texel" % ratio
+                  if ratio is not None else "Stencil sampling unavailable")
+    blf.draw(0, ratio_text)
+    blf.position(0, x, y - 15, 0)
+    blf.draw(0, label)
+
+
+def draw_stencil_sampling_hud(session, region, rv3d):
+    """Best-effort HUD: diagnostics must never interrupt GPU painting."""
+    try:
+        _draw_stencil_sampling_hud(session, region, rv3d)
+    except Exception:
+        return
+
+
 # Dark, cool, saturated: green scales, cyan rotates. One fill each, no rim.
 _SCALE_FILL = (0.04, 0.58, 0.32, 0.96)
 _ROTATE_FILL = (0.00, 0.56, 0.68, 0.96)
