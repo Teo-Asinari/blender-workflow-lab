@@ -22,7 +22,7 @@ from bpy.props import (BoolProperty, CollectionProperty, IntProperty,
 bl_info = {
     "name": "Stroke Recorder",
     "author": "Teo Asinari",
-    "version": (0, 3, 5),
+    "version": (0, 3, 6),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > Stroke Recorder",
     "description": "Record native sculpt, texture-paint, and Impasto GPU "
@@ -348,6 +348,14 @@ def _read_sidecar(path=None):
     return data if isinstance(data, dict) else {"schema": 1, "takes": {}}
 
 
+def _write_sidecar(data, path):
+    """Atomically replace a compressed recording sidecar."""
+    temporary = path + ".tmp"
+    with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
+        json.dump(data, stream, separators=(",", ":"))
+    os.replace(temporary, path)
+
+
 def _take_records(take, sidecar=None):
     if take.strokes:
         return [{"payload": item.payload, "brush": item.brush}
@@ -377,13 +385,30 @@ def externalize_recordings(settings, path=None):
         }
     existing["takes"] = {key: value for key, value in entries.items()
                          if key in active_ids}
-    temporary = path + ".tmp"
-    with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
-        json.dump(existing, stream, separators=(",", ":"))
-    os.replace(temporary, path)
+    _write_sidecar(existing, path)
     for take in settings.takes:
         take.strokes.clear()
     return path
+
+
+def remove_take(settings, index, path=None):
+    """Remove one take and its sidecar stream, then select a nearby take.
+
+    The sidecar is committed first so a write error cannot leave Scene
+    metadata pointing at a payload that has already been lost.
+    """
+    if index < 0 or index >= len(settings.takes):
+        return False
+    take = settings.takes[index]
+    path = sidecar_path() if path is None else path
+    if path and take.storage_id and os.path.isfile(path):
+        data = _read_sidecar(path)
+        entries = data.setdefault("takes", {})
+        entries.pop(take.storage_id, None)
+        _write_sidecar(data, path)
+    settings.takes.remove(index)
+    settings.active_take = max(0, min(index, len(settings.takes) - 1))
+    return True
 
 
 def _operator_pointer(operator):
@@ -700,17 +725,28 @@ class SCULPTREC_OT_remove_take(bpy.types.Operator):
     bl_label = "Remove Take"
     bl_options = {'UNDO'}
 
+    @classmethod
+    def poll(cls, context):
+        settings = getattr(context.scene, "sculpt_stroke_recorder", None)
+        return bool(settings is not None and settings.takes
+                    and not settings.recording)
+
+    def invoke(self, context, event):
+        take = _active_take(context.scene.sculpt_stroke_recorder)
+        if take is not None and (len(take.strokes) or take.stroke_count):
+            return context.window_manager.invoke_confirm(self, event)
+        return self.execute(context)
+
     def execute(self, context):
         settings = context.scene.sculpt_stroke_recorder
         if settings.recording or not settings.takes:
             return {'CANCELLED'}
         index = min(settings.active_take, len(settings.takes) - 1)
-        settings.takes.remove(index)
-        settings.active_take = max(0, min(index, len(settings.takes) - 1))
         try:
-            externalize_recordings(settings)
-        except (OSError, ValueError):
-            pass
+            remove_take(settings, index)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self.report({'ERROR'}, "Could not delete take: %s" % exc)
+            return {'CANCELLED'}
         return {'FINISHED'}
 
 
@@ -837,6 +873,10 @@ def register():
         keymap = keyconfig.keymaps.new(name='3D View', space_type='VIEW_3D')
         item = keymap.keymap_items.new(
             SCULPTREC_OT_record_toggle.bl_idname, 'R', 'PRESS',
+            shift=True, alt=True)
+        _keymaps.append((keymap, item))
+        item = keymap.keymap_items.new(
+            SCULPTREC_OT_remove_take.bl_idname, 'D', 'PRESS',
             shift=True, alt=True)
         _keymaps.append((keymap, item))
     _bind_impasto_listener()

@@ -39,10 +39,14 @@ check("record operator registered",
       hasattr(bpy.ops.sculpt_recorder, "record_toggle"))
 check("replay operator registered",
       hasattr(bpy.ops.sculpt_recorder, "replay"))
+check("delete operator registered",
+      hasattr(bpy.ops.sculpt_recorder, "remove_take"))
 check("sidebar panel registered",
       hasattr(bpy.types, "VIEW3D_PT_sculpt_stroke_recorder"))
 check("global 3D View recording shortcut registered",
-      len(recorder._keymaps) == 1)
+      len(recorder._keymaps) == 2)
+check("non-empty deletion has confirmation path",
+      "invoke" in recorder.SCULPTREC_OT_remove_take.__dict__)
 
 props = SimpleNamespace(stroke=[make_point()], mode='NORMAL',
                         brush_toggle='NONE', pen_flip=False)
@@ -187,6 +191,34 @@ check("Impasto take refuses replay after the GPU session ends",
       not bpy.ops.sculpt_recorder.replay.poll())
 check("legacy payload without kind is sculpt",
       recorder.payload_kind({"samples": []}) == recorder.KIND_SCULPT)
+
+# Deletion must update both Scene metadata and compressed storage atomically.
+delete_a = settings.takes.add()
+delete_a.name = "Delete A"
+delete_a.source_mode = "SCULPT"
+delete_a.strokes.add().payload = json.dumps(payload)
+delete_b = settings.takes.add()
+delete_b.name = "Delete B"
+delete_b.source_mode = "SCULPT"
+delete_b.strokes.add().payload = json.dumps(payload)
+delete_path = os.path.join(tempfile.gettempdir(),
+                           "stroke_recorder_delete_test.json.gz")
+recorder.externalize_recordings(settings, delete_path)
+delete_index = len(settings.takes) - 2
+delete_a_id = settings.takes[delete_index].storage_id
+delete_b_id = settings.takes[delete_index + 1].storage_id
+settings.active_take = delete_index
+check("stored take deletion succeeds",
+      recorder.remove_take(settings, delete_index, delete_path))
+stored_ids = recorder._read_sidecar(delete_path)["takes"]
+check("deleted take leaves no sidecar payload",
+      delete_a_id not in stored_ids and delete_b_id in stored_ids)
+check("deletion selects the take that moved into its row",
+      settings.active_take == delete_index
+      and settings.takes[delete_index].storage_id == delete_b_id)
+check("deleting final row selects the new last row",
+      recorder.remove_take(settings, delete_index, delete_path)
+      and settings.active_take == len(settings.takes) - 1)
 
 recorder.unregister()
 check("scene settings unregistered",

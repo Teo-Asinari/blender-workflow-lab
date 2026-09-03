@@ -12,7 +12,7 @@ installs and `.blend` takes keep loading.
 
 This add-on is experimental. Rebuild the ZIP with
 `python scripts/package_addons.py sculpt_stroke_recorder` and install
-`dist/sculpt_stroke_recorder-0.3.5.zip` via **Edit > Preferences > Add-ons >
+`dist/sculpt_stroke_recorder-0.3.6.zip` via **Edit > Preferences > Add-ons >
 Install from Disk**, then enable **Stroke Recorder**. Copying or
 symlinking the `sculpt_stroke_recorder` folder into `scripts/addons/`
 remains a developer option. Impasto GPU capture needs Impasto 0.15.32+
@@ -37,6 +37,11 @@ Impasto recording does **not** require Blender Texture Paint mode or its
 workspace. While an Impasto GPU paint session is active, its stroke stream
 takes precedence over Blender's incidental object/tool mode and the recorder
 creates an `Impasto GPU` take.
+
+Delete the selected take with the trash button, Blender's operator search, or
+**Shift+Alt+D**. Non-empty takes ask for confirmation. Deletion also removes
+the take's compressed sidecar payload and selects the next take (or the new
+last take when deleting at the end).
 
 Replay is an Undo-enabled operation for native sculpt/paint and applies the
 recorded paths with the currently active brush of that mode. Impasto GPU
@@ -71,8 +76,6 @@ texture paint.
 
 ## Current boundaries
 
-- Takes cannot currently be deleted through the add-on UI. Add confirmed take
-  deletion that also removes the take's payload from the compressed sidecar.
 - The `.blend` must be saved before a sidecar path exists. Unsaved projects
   temporarily retain stroke streams in the Scene and externalize them after a
   later recording is stopped once the project has been saved.
