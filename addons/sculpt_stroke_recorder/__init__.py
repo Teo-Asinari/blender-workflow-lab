@@ -15,14 +15,14 @@ import traceback
 import uuid
 
 import bpy
-from bpy.props import (BoolProperty, CollectionProperty, IntProperty,
-                       StringProperty)
+from bpy.props import (BoolProperty, CollectionProperty, EnumProperty,
+                       IntProperty, StringProperty)
 
 
 bl_info = {
     "name": "Stroke Recorder",
     "author": "Teo Asinari",
-    "version": (0, 3, 6),
+    "version": (0, 4, 0),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar (N) > Stroke Recorder",
     "description": "Record native sculpt, texture-paint, and Impasto GPU "
@@ -88,6 +88,157 @@ def _json_value(value):
         return [float(item) for item in value]
     except (TypeError, ValueError):
         return str(value)
+
+
+def _matrix_value(value):
+    try:
+        return [[float(cell) for cell in row] for row in value]
+    except (TypeError, ValueError):
+        return None
+
+
+def _view_context(context):
+    region = getattr(context, "region", None)
+    space = getattr(context, "space_data", None)
+    region_3d = getattr(space, "region_3d", None)
+    if region is None or region_3d is None:
+        return None
+    return {
+        "region_size": [int(region.width), int(region.height)],
+        "view_matrix": _matrix_value(region_3d.view_matrix),
+        "perspective_matrix": _matrix_value(region_3d.perspective_matrix),
+        "view_location": _json_value(region_3d.view_location),
+        "view_rotation": _json_value(region_3d.view_rotation),
+        "view_distance": float(region_3d.view_distance),
+        "view_perspective": str(region_3d.view_perspective),
+    }
+
+
+def _material_context(obj, payload):
+    material = getattr(obj, "active_material", None)
+    result = {
+        "object_name": getattr(obj, "name", ""),
+        "object_matrix_world": _matrix_value(
+            getattr(obj, "matrix_world", None)),
+        "material_name": getattr(material, "name", ""),
+    }
+    if payload.get("kind") == KIND_IMPASTO:
+        result["impasto"] = {
+            key: payload.get(key) for key in (
+                "layer_uid", "brush_mode", "channel_keys",
+                "target_channel_keys", "radius", "hardness", "opacity")
+        }
+    return result
+
+
+def _surface_context(context, obj, samples, stride):
+    """Ray-cast selected pointer samples; absence of a 3D region is harmless."""
+    region = getattr(context, "region", None)
+    space = getattr(context, "space_data", None)
+    region_3d = getattr(space, "region_3d", None)
+    if region is None or region_3d is None or obj is None:
+        return []
+    try:
+        from bpy_extras import view3d_utils
+    except ImportError:
+        return []
+    matrix = obj.matrix_world
+    inverse = matrix.inverted_safe()
+    normal_matrix = inverse.transposed().to_3x3()
+    mesh = getattr(obj, "data", None)
+    triangles_by_face = {}
+    uv_data = None
+    if mesh is not None:
+        try:
+            mesh.calc_loop_triangles()
+            uv_layer = mesh.uv_layers.active
+            uv_data = uv_layer.data if uv_layer is not None else None
+            for triangle in mesh.loop_triangles:
+                triangles_by_face.setdefault(
+                    int(triangle.polygon_index), []).append(triangle)
+        except (AttributeError, RuntimeError):
+            uv_data = None
+    results = []
+    step = max(1, int(stride))
+    chosen = set(range(0, len(samples), step))
+    if samples:
+        chosen.add(len(samples) - 1)
+    for index in sorted(chosen):
+        mouse = samples[index].get("mouse")
+        if not mouse or len(mouse) < 2:
+            continue
+        coordinate = (float(mouse[0]), float(mouse[1]))
+        origin_world = view3d_utils.region_2d_to_origin_3d(
+            region, region_3d, coordinate)
+        direction_world = view3d_utils.region_2d_to_vector_3d(
+            region, region_3d, coordinate)
+        origin_local = inverse @ origin_world
+        direction_local = (inverse.to_3x3() @ direction_world).normalized()
+        hit, location, normal, face_index = obj.ray_cast(
+            origin_local, direction_local)
+        if not hit:
+            continue
+        world_normal = (normal_matrix @ normal).normalized()
+        surface = {
+            "sample_index": index,
+            "world_location": _json_value(matrix @ location),
+            "world_normal": _json_value(world_normal),
+            "face_index": int(face_index),
+            "view_depth": float((matrix @ location - origin_world).length),
+        }
+        if uv_data is not None:
+            for triangle in triangles_by_face.get(int(face_index), ()):
+                a, b, c = (mesh.vertices[vertex].co
+                           for vertex in triangle.vertices)
+                v0, v1, v2 = b - a, c - a, location - a
+                d00, d01, d11 = v0.dot(v0), v0.dot(v1), v1.dot(v1)
+                d20, d21 = v2.dot(v0), v2.dot(v1)
+                denominator = d00 * d11 - d01 * d01
+                if abs(denominator) < 1e-20:
+                    continue
+                weight_b = (d11 * d20 - d01 * d21) / denominator
+                weight_c = (d00 * d21 - d01 * d20) / denominator
+                weight_a = 1.0 - weight_b - weight_c
+                if min(weight_a, weight_b, weight_c) < -1e-4:
+                    continue
+                uv_a, uv_b, uv_c = (uv_data[loop].uv
+                                     for loop in triangle.loops)
+                uv = uv_a * weight_a + uv_b * weight_b + uv_c * weight_c
+                surface["uv"] = _json_value(uv)
+                break
+        results.append(surface)
+    return results
+
+
+def enhance_payload(context, payload, settings):
+    """Attach opt-in dataset context without changing replay sample semantics."""
+    if getattr(settings, "recording_profile", 'BASIC') != 'ENHANCED':
+        return payload
+    result = dict(payload)
+    enhanced = {"schema": 1}
+    obj = getattr(context, "active_object", None)
+    if settings.enhanced_view:
+        view = _view_context(context)
+        if view is not None:
+            enhanced["view"] = view
+    if settings.enhanced_material:
+        enhanced["material"] = _material_context(obj, result)
+    if settings.enhanced_brush:
+        kind = payload_kind(result)
+        if kind == KIND_IMPASTO:
+            enhanced["brush"] = {
+                key: result.get(key) for key in (
+                    "brush_mode", "radius", "hardness", "opacity",
+                    "channel_keys", "target_channel_keys")
+            }
+        else:
+            enhanced["brush"] = _brush_snapshot(context, kind)
+    if settings.enhanced_surface:
+        enhanced["surface_samples"] = _surface_context(
+            context, obj, result.get("samples", ()),
+            settings.enhanced_surface_stride)
+    result["enhanced"] = enhanced
+    return result
 
 
 def serialize_stroke_operator(operator):
@@ -190,6 +341,7 @@ def _on_impasto_stroke(payload):
     take = _active_take(settings)
     if take is None or _take_kind(take) != KIND_IMPASTO:
         return
+    payload = enhance_payload(bpy.context, payload, settings)
     item = take.strokes.add()
     item.payload = json.dumps(payload, separators=(",", ":"))
     item.brush = json.dumps({
@@ -245,6 +397,31 @@ class SCULPTREC_PG_settings(bpy.types.PropertyGroup):
     show_hud_log: BoolProperty(
         name="Show Stroke Log",
         description="Show recent completed strokes in the recording HUD",
+        default=True)
+    recording_profile: EnumProperty(
+        name="Recording Detail",
+        description="Basic is compact; Enhanced stores optional training context",
+        items=(
+            ('BASIC', "Basic", "Pointer samples and ordinary brush metadata"),
+            ('ENHANCED', "Enhanced", "Add selected view, surface, material, and brush context"),
+        ), default='BASIC')
+    enhanced_view: BoolProperty(
+        name="View State", description="Record viewport size and camera matrices",
+        default=True)
+    enhanced_surface: BoolProperty(
+        name="Surface Hits", description="Ray-cast sampled points onto the mesh",
+        default=True)
+    enhanced_surface_stride: IntProperty(
+        name="Surface Sample Stride",
+        description="Record one surface hit for every N pointer samples",
+        default=4, min=1, max=64)
+    enhanced_material: BoolProperty(
+        name="Material / Layer",
+        description="Record object, material, layer, and channel context",
+        default=True)
+    enhanced_brush: BoolProperty(
+        name="Expanded Brush State",
+        description="Record a detailed brush snapshot per stroke",
         default=True)
     takes: CollectionProperty(type=SCULPTREC_PG_recording)
     active_take: IntProperty(default=0, min=0)
@@ -470,6 +647,7 @@ def _capture_completed(context):
         data = serialize_stroke_operator(operator)
         if data is None or data.get("kind") != wanted:
             continue
+        data = enhance_payload(context, data, settings)
         item = take.strokes.add()
         item.payload = json.dumps(data, separators=(",", ":"))
         item.brush = json.dumps(_brush_snapshot(context, wanted),
@@ -776,6 +954,16 @@ class VIEW3D_PT_sculpt_stroke_recorder(bpy.types.Panel):
         settings = context.scene.sculpt_stroke_recorder
         obj = context.active_object
         kind = _mesh_record_kind(obj)
+        layout.prop(settings, "recording_profile", expand=True)
+        if settings.recording_profile == 'ENHANCED':
+            detail = layout.box()
+            detail.label(text="Enhanced Context")
+            detail.prop(settings, "enhanced_view")
+            detail.prop(settings, "enhanced_surface")
+            if settings.enhanced_surface:
+                detail.prop(settings, "enhanced_surface_stride")
+            detail.prop(settings, "enhanced_material")
+            detail.prop(settings, "enhanced_brush")
         button = layout.row()
         button.scale_y = 1.35
         button.operator(

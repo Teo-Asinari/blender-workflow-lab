@@ -89,6 +89,24 @@ check("HUD stroke log summarizes samples, duration, and pressure",
       == "1 samples · 0.25s · pressure 0.75–0.75")
 
 settings = bpy.context.scene.sculpt_stroke_recorder
+check("recording detail defaults to compact basic mode",
+      settings.recording_profile == 'BASIC')
+check("enhanced recording controls registered",
+      settings.enhanced_view and settings.enhanced_surface
+      and settings.enhanced_surface_stride == 4
+      and settings.enhanced_material and settings.enhanced_brush)
+check("basic mode leaves payload unchanged",
+      recorder.enhance_payload(bpy.context, payload, settings) is payload)
+settings.recording_profile = 'ENHANCED'
+enhanced_payload = recorder.enhance_payload(bpy.context, payload, settings)
+check("enhanced mode adds versioned optional context",
+      enhanced_payload["enhanced"]["schema"] == 1
+      and "material" in enhanced_payload["enhanced"]
+      and "brush" in enhanced_payload["enhanced"]
+      and "surface_samples" in enhanced_payload["enhanced"])
+check("enhanced context does not alter replay samples",
+      recorder.replay_samples(enhanced_payload) == replay)
+settings.recording_profile = 'BASIC'
 take = settings.takes.add()
 take.name = "Test Take"
 take.object_name = "Sculpt"
