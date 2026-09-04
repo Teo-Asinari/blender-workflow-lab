@@ -4,6 +4,16 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.16.0
+
+- Masks are now named material-stack assets: one grayscale Blender Image and
+  UV map can be linked to any number of Paint or Fill layers. Each link keeps
+  independent visibility, inversion, opacity, channel scope, and Multiply
+  combination behavior. Painting or editing the asset updates every user.
+- Existing layer-owned masks migrate automatically without copying or
+  replacing their images. Unlinking keeps the asset and image; an asset still
+  referenced by a layer refuses deletion with a clear error.
+
 ## 0.15.41
 
 - Add an opt-in Focused Painting UI toggle beside the GPU Paint control. It

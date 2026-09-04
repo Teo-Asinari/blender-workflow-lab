@@ -34,7 +34,8 @@ def context_stack(context):
 
 def unique_uid(state):
     existing = ({ly.name for ly in state.layers}
-                | {mask.name for ly in state.layers for mask in ly.masks})
+                | {mask.name for ly in state.layers for mask in ly.masks}
+                | {asset.name for asset in state.mask_assets})
     return model.new_uid(existing)
 
 

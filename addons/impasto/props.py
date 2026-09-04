@@ -150,6 +150,21 @@ class ImpastoMask(bpy.types.PropertyGroup):
     opacity: FloatProperty(default=1.0, min=0.0, max=1.0,
                            subtype='FACTOR', update=_uniform)
     visible: BoolProperty(default=True, update=_structural)
+    asset_uid: StringProperty(
+        name="Mask Asset", description="Shared stack mask asset",
+        update=_structural)
+    channels: BoolVectorProperty(
+        name="Channels", size=len(model.CHANNELS),
+        default=tuple(True for _ in model.CHANNELS),
+        description="Material channels affected by this mask reference",
+        update=_structural)
+
+
+class ImpastoMaskAsset(bpy.types.PropertyGroup):
+    """Stack-level reusable mask image and UV domain."""
+    label: StringProperty(name="Name", default="Mask", update=_structural)
+    image_name: StringProperty(name="Image", update=_structural)
+    uv_map: StringProperty(name="UV Map", update=_structural)
 
 
 class ImpastoRecentColor(bpy.types.PropertyGroup):
@@ -522,6 +537,7 @@ class ImpastoStack(bpy.types.PropertyGroup):
     recent_base_colors: CollectionProperty(type=ImpastoRecentColor)
     recent_emission_colors: CollectionProperty(type=ImpastoRecentColor)
     material_presets: CollectionProperty(type=ImpastoMaterialPreset)
+    mask_assets: CollectionProperty(type=ImpastoMaskAsset)
     active_layer_uid: StringProperty()
     # presentation-order UI slot for template_list; the uid above is
     # the source of truth for every cross-reference.
@@ -576,6 +592,7 @@ class ImpastoPreferences(bpy.types.AddonPreferences):
 _classes = (
     ImpastoBinding,
     ImpastoMask,
+    ImpastoMaskAsset,
     ImpastoRecentColor,
     ImpastoLayer,
     ImpastoChannel,

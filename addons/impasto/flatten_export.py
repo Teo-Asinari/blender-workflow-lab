@@ -144,7 +144,9 @@ def composite_channel(stack_model, channel_key, width, height):
             source = np.empty_like(result); source[:] = seed
         if binding.use_masks:
             for mask in layer.masks:
-                if not (mask.visible and mask.image_name):
+                if not (mask.visible and mask.image_name
+                        and (not mask.channels
+                             or channel_key in mask.channels)):
                     continue
                 mask_data = _resize(_pixels(_image(mask.image_name)), width, height)
                 value = _luminance(mask_data)

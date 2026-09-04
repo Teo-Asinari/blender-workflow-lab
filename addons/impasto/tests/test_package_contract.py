@@ -32,6 +32,12 @@ OPERATOR_IDS = {
     "IMPASTO_OT_channel_add": "impasto.channel_add",
     "IMPASTO_OT_binding_add": "impasto.binding_add",
     "IMPASTO_OT_binding_remove": "impasto.binding_remove",
+    "IMPASTO_OT_mask_add": "impasto.mask_add",
+    "IMPASTO_OT_mask_remove": "impasto.mask_remove",
+    "IMPASTO_OT_mask_select": "impasto.mask_select",
+    "IMPASTO_OT_mask_paint": "impasto.mask_paint",
+    "IMPASTO_OT_mask_asset_link": "impasto.mask_asset_link",
+    "IMPASTO_OT_mask_asset_delete": "impasto.mask_asset_delete",
     "IMPASTO_OT_stack_rebuild": "impasto.stack_rebuild",
     "IMPASTO_OT_import_kiln_normal": "impasto.import_kiln_normal",
     "IMPASTO_OT_paint_activate": "impasto.paint_activate",
@@ -66,8 +72,9 @@ PROPERTY_IDS = {
     },
     "ImpastoMask": {
         "label", "mask_type", "image_name", "uv_map", "blend", "invert",
-        "opacity", "visible",
+        "opacity", "visible", "asset_uid", "channels",
     },
+    "ImpastoMaskAsset": {"label", "image_name", "uv_map"},
     "ImpastoLayer": {
         "label", "layer_type", "parent_uid", "visible", "opacity",
         "blend_mode", "image_name", "uv_map", "bindings", "masks",
@@ -109,7 +116,7 @@ PROPERTY_IDS = {
         "is_stack", "schema_version", "blender_version", "channels",
         "layers", "active_layer_uid", "active_index",
         "recent_base_colors", "recent_emission_colors",
-        "material_presets", "default_canvas_size",
+        "material_presets", "mask_assets", "default_canvas_size",
     },
     "ImpastoMaterialState": {"displaced_links", "stack_tree"},
 }

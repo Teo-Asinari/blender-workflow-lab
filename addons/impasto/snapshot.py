@@ -23,21 +23,24 @@ def _snapshot_binding(b):
     )
 
 
-def _snapshot_mask(m):
+def _snapshot_mask(m, state):
+    asset = state.mask_assets.get(m.asset_uid) if m.asset_uid else None
     return model.MaskModel(
         uid=m.name,
-        label=m.label,
+        label=asset.label if asset else m.label,
         mask_type=m.mask_type,
-        image_name=m.image_name,
-        uv_map=m.uv_map,
+        image_name=asset.image_name if asset else m.image_name,
+        uv_map=asset.uv_map if asset else m.uv_map,
         blend=m.blend,
         invert=m.invert,
         opacity=m.opacity,
         visible=m.visible,
+        channels=tuple(key for key, index in model.CHANNEL_ORDER.items()
+                       if m.channels[index]),
     )
 
 
-def _snapshot_layer(ly):
+def _snapshot_layer(ly, state):
     return model.LayerModel(
         uid=ly.name,
         label=ly.label,
@@ -49,7 +52,7 @@ def _snapshot_layer(ly):
         image_name=ly.image_name,
         uv_map=ly.uv_map,
         bindings=tuple(_snapshot_binding(b) for b in ly.bindings),
-        masks=tuple(_snapshot_mask(m) for m in ly.masks),
+        masks=tuple(_snapshot_mask(m, state) for m in ly.masks),
     )
 
 
@@ -66,6 +69,6 @@ def snapshot(root_tree, material=None):
     return model.StackModel(
         root_tree_name=root_tree.name,
         channels=tuple(c.name for c in state.channels if c.enabled),
-        layers=tuple(_snapshot_layer(ly) for ly in state.layers),
+        layers=tuple(_snapshot_layer(ly, state) for ly in state.layers),
         material=mat_model,
     )

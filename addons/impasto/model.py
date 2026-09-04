@@ -25,7 +25,8 @@ from dataclasses import dataclass, field
 # 2: per-binding canvases — every SHARED PAINT binding carries its own
 #    image_name (engine.py migrates 1 -> 2 by copying the layer canvas
 #    into bindings that lack one; compile keeps the legacy fallback).
-SCHEMA_VERSION = 2
+# 3: stack-level reusable mask assets; layer masks become lightweight refs.
+SCHEMA_VERSION = 3
 
 NODE_PREFIX = "ps:"
 LAYER_TREE_PREFIX = ".Impasto Layer "
@@ -172,6 +173,7 @@ class MaskModel:
     invert: bool = False
     opacity: float = 1.0
     visible: bool = True
+    channels: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -528,11 +530,13 @@ def _compile_layer_tree(layer):
                               (("Value_001", a), ("Value_002", b))))
         links.append(LinkSpec((n_mask_src(uid, m.uid), "Color"),
                               (n_mask_op(uid, m.uid), "Value")))
-        mask_factors.append((n_mask_op(uid, m.uid), "Value"))
+        mask_factors.append(((n_mask_op(uid, m.uid), "Value"), m.channels))
         mask_y -= 340.0
 
     for k in gate_keys:
-        factors = ([channel_alpha[k]] if k in channel_alpha else []) + mask_factors
+        factors = ([channel_alpha[k]] if k in channel_alpha else []) + [
+            factor for factor, channels in mask_factors
+            if not channels or k in channels]
         cur = factors[0] if factors else None
         for i, nxt in enumerate(factors[1:]):
             mul = n_binding_gate(uid, k, i)

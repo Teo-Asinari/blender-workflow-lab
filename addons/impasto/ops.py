@@ -514,7 +514,7 @@ class IMPASTO_OT_binding_remove(bpy.types.Operator):
 
 
 class IMPASTO_OT_mask_add(bpy.types.Operator):
-    """Add a paintable grayscale image mask to the active layer."""
+    """Create a reusable grayscale mask asset and link it to this layer."""
     bl_idname = "impasto.mask_add"
     bl_label = "Impasto: Add Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -534,13 +534,80 @@ class IMPASTO_OT_mask_add(bpy.types.Operator):
             "Non-Color", size=size,
             generated_color=(1.0, 1.0, 1.0, 1.0))
         with engine.stack_edit_session(tree):
+            asset = state.mask_assets.add()
+            asset.name = _unique_uid(state)
+            asset.label = "Mask %d" % (len(state.mask_assets))
+            asset.image_name = image.name
+            asset.uv_map = layer.uv_map or _active_uv_map(context)
             mask = layer.masks.add()
             mask.name = _unique_uid(state)
-            mask.label = "Mask %d" % (len(layer.masks))
+            mask.label = asset.label
+            mask.asset_uid = asset.name
+            # Legacy mirrors make downgrade/manual recovery straightforward.
             mask.image_name = image.name
-            mask.uv_map = layer.uv_map or _active_uv_map(context)
+            mask.uv_map = asset.uv_map
             layer.active_mask_index = len(layer.masks) - 1
-        self.report({'INFO'}, "Added white layer mask (image kept on removal)")
+        self.report({'INFO'}, "Created and linked shared white mask asset")
+        return {'FINISHED'}
+
+
+def _mask_asset_items(self, context):
+    _mat, tree = _context_stack(context)
+    if tree is None:
+        return (("", "No mask assets", "Create a mask asset first"),)
+    return tuple((asset.name, asset.label or asset.name, asset.image_name)
+                 for asset in tree.impasto.mask_assets)
+
+
+class IMPASTO_OT_mask_asset_link(bpy.types.Operator):
+    """Link an existing shared mask asset to the active layer."""
+    bl_idname = "impasto.mask_asset_link"
+    bl_label = "Impasto: Link Shared Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+    asset_uid: EnumProperty(name="Mask Asset", items=_mask_asset_items)
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context):
+        _mat, tree = _context_stack(context)
+        layer = tree.impasto.active_layer() if tree else None
+        asset = tree.impasto.mask_assets.get(self.asset_uid) if tree else None
+        if layer is None or asset is None or layer.layer_type == 'GROUP':
+            return {'CANCELLED'}
+        with engine.stack_edit_session(tree):
+            ref = layer.masks.add()
+            ref.name = _unique_uid(tree.impasto)
+            ref.label = asset.label
+            ref.asset_uid = asset.name
+            layer.active_mask_index = len(layer.masks) - 1
+        return {'FINISHED'}
+
+
+class IMPASTO_OT_mask_asset_delete(bpy.types.Operator):
+    """Delete an unused shared mask asset while retaining its Blender image."""
+    bl_idname = "impasto.mask_asset_delete"
+    bl_label = "Impasto: Delete Shared Mask Asset"
+    bl_options = {'REGISTER', 'UNDO'}
+    asset_uid: StringProperty()
+
+    def execute(self, context):
+        _mat, tree = _context_stack(context)
+        state = tree.impasto if tree else None
+        if state is None:
+            return {'CANCELLED'}
+        users = sum(ref.asset_uid == self.asset_uid for layer in state.layers
+                    for ref in layer.masks)
+        if users:
+            self.report({'WARNING'}, "Mask asset is linked by %d layer reference(s); unlink it first" % users)
+            return {'CANCELLED'}
+        index = next((i for i, asset in enumerate(state.mask_assets)
+                      if asset.name == self.asset_uid), -1)
+        if index < 0:
+            return {'CANCELLED'}
+        with engine.stack_edit_session(tree):
+            state.mask_assets.remove(index)
+        self.report({'INFO'}, "Deleted mask asset; Blender image was retained")
         return {'FINISHED'}
 
 
@@ -594,8 +661,10 @@ class IMPASTO_OT_mask_paint(bpy.types.Operator):
         if layer is None or not layer.masks:
             return {'CANCELLED'}
         index = min(max(0, layer.active_mask_index), len(layer.masks) - 1)
+        ref = layer.masks[index]
+        asset = tree.impasto.mask_assets.get(ref.asset_uid)
         try:
-            paint.activate_mask_target(context, layer, layer.masks[index])
+            paint.activate_mask_target(context, layer, ref, asset)
             if context.object.mode != 'OBJECT':
                 bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
@@ -604,7 +673,8 @@ class IMPASTO_OT_mask_paint(bpy.types.Operator):
             return {'CANCELLED'}
         paint.activate_brush_tool(context)
         paint.maybe_switch_material_preview(context)
-        self.report({'INFO'}, "Painting mask %s" % layer.masks[index].label)
+        self.report({'INFO'}, "Painting shared mask %s" %
+                    ((asset.label if asset else ref.label)))
         return {'FINISHED'}
 
 
@@ -2266,6 +2336,8 @@ _classes = (
     IMPASTO_OT_binding_add,
     IMPASTO_OT_binding_remove,
     IMPASTO_OT_mask_add,
+    IMPASTO_OT_mask_asset_link,
+    IMPASTO_OT_mask_asset_delete,
     IMPASTO_OT_mask_remove,
     IMPASTO_OT_mask_select,
     IMPASTO_OT_mask_paint,

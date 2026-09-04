@@ -2412,7 +2412,8 @@ def resident_stack_runtime_spec(stack_model, active_uid):
                 if layer.layer_type == "PAINT" and image_name:
                     masks = [m for m in layer.masks
                              if binding.use_masks and m.visible
-                             and m.image_name]
+                             and m.image_name
+                             and (not m.channels or key in m.channels)]
                     if (masks and (
                             len(masks) > 1
                             or str(masks[0].uv_map or layer.uv_map or "")
@@ -2448,7 +2449,8 @@ def resident_stack_runtime_spec(stack_model, active_uid):
                     continue
                 factor = model.const_factor(stack_model, layer, binding)
                 masks = [m for m in layer.masks
-                         if binding.use_masks and m.visible and m.image_name]
+                         if binding.use_masks and m.visible and m.image_name
+                         and (not m.channels or key in m.channels)]
                 if (masks and (
                         len(masks) > 1
                         or str(masks[0].uv_map or layer.uv_map or "")

@@ -297,7 +297,27 @@ def _migrate_1_per_binding_canvases(state):
                 b.image_name = ly.image_name
 
 
-MIGRATIONS = ((1, _migrate_1_per_binding_canvases),)
+def _migrate_2_shared_mask_assets(state):
+    """Schema 2 -> 3: move mask image ownership to stack assets losslessly."""
+    existing = {asset.name for asset in state.mask_assets}
+    for ly in state.layers:
+        for ref in ly.masks:
+            if ref.asset_uid and state.mask_assets.get(ref.asset_uid):
+                continue
+            uid = ref.name
+            if uid in existing:
+                uid = model.new_uid(existing)
+            asset = state.mask_assets.add()
+            asset.name = uid
+            asset.label = ref.label or "Mask"
+            asset.image_name = ref.image_name
+            asset.uv_map = ref.uv_map
+            ref.asset_uid = uid
+            existing.add(uid)
+
+
+MIGRATIONS = ((1, _migrate_1_per_binding_canvases),
+              (2, _migrate_2_shared_mask_assets))
 
 
 def run_migrations(tree):

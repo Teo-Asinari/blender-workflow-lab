@@ -146,16 +146,18 @@ def activate_paint_target(context, layer, channel_key=""):
     return repaired
 
 
-def activate_mask_target(context, layer, mask):
+def activate_mask_target(context, layer, mask, asset=None):
     """Make a layer-mask image Blender's native grayscale paint canvas."""
     obj = context.object
     if obj is None or obj.type != 'MESH':
         raise PaintTargetError("Select the mesh that owns this Impasto stack")
-    image = bpy.data.images.get(mask.image_name) if mask else None
+    source_mask = asset or mask
+    image = bpy.data.images.get(source_mask.image_name) if source_mask else None
     if image is None:
         raise PaintTargetError("The selected mask image is missing")
     uv_layers = obj.data.uv_layers
-    uv = uv_layers.get(mask.uv_map) if mask.uv_map else uv_layers.active
+    uv = (uv_layers.get(source_mask.uv_map)
+          if source_mask.uv_map else uv_layers.active)
     if uv is None:
         raise PaintTargetError("The mask UV map is missing")
     uv_layers.active = uv

@@ -136,15 +136,18 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                     self._draw_bindings(channels_box, state, layer)
                 masks_box = box.box()
                 row = masks_box.row(align=True)
-                row.label(text="Layer Masks", icon='MOD_MASK')
+                row.label(text="Shared Masks", icon='MOD_MASK')
                 row.operator(ops.IMPASTO_OT_mask_add.bl_idname, text="",
-                             icon='ADD')
+                             icon='FILE_NEW')
+                row.operator(ops.IMPASTO_OT_mask_asset_link.bl_idname,
+                             text="", icon='LINKED')
                 row.operator(ops.IMPASTO_OT_mask_remove.bl_idname, text="",
                              icon='REMOVE')
                 for index, mask in enumerate(layer.masks):
                     row = masks_box.row(align=True)
                     row.prop(mask, "visible", text="")
-                    row.prop(mask, "label", text="")
+                    row.prop_search(mask, "asset_uid", state, "mask_assets",
+                                    text="")
                     row.prop(mask, "invert", text="Invert")
                     row.prop(mask, "opacity", text="", slider=True)
                     op = row.operator(
@@ -152,6 +155,14 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                         icon=('RADIOBUT_ON' if index
                               == layer.active_mask_index else 'RADIOBUT_OFF'))
                     op.index = index
+                    scope = masks_box.row(align=True)
+                    scope.label(text="Channels:")
+                    for key in state.channels:
+                        if key.enabled:
+                            scope.prop(mask, "channels",
+                                       index=model.CHANNEL_ORDER[key.name],
+                                       text=model.CHANNEL_MAP[key.name].label,
+                                       toggle=True)
                 if layer.masks:
                     masks_box.operator(
                         ops.IMPASTO_OT_mask_paint.bl_idname,
@@ -163,6 +174,20 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                             row.prop(binding, "use_masks",
                                      text=model.CHANNEL_MAP[
                                          binding.name].label)
+                if state.mask_assets:
+                    assets = masks_box.box()
+                    assets.label(text="Material Mask Library")
+                    for asset in state.mask_assets:
+                        row = assets.row(align=True)
+                        row.prop(asset, "label", text="")
+                        row.prop_search(asset, "image_name", bpy.data,
+                                        "images", text="")
+                        row.prop_search(asset, "uv_map", context.object.data,
+                                        "uv_layers", text="")
+                        op = row.operator(
+                            ops.IMPASTO_OT_mask_asset_delete.bl_idname,
+                            text="", icon='TRASH')
+                        op.asset_uid = asset.name
                 if layer.layer_type == 'PAINT':
                     self._draw_paint_tools(context, box, layer)
             else:

@@ -1,6 +1,6 @@
 # Impasto
 
-Impasto 0.15.41 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
+Impasto 0.16.0 is a Blender 5.1 add-on for non-destructive, multi-channel PBR
 painting. It stores material work as ordered Paint and Fill layers, compiles
 the stack into a Principled BSDF material, and provides a GPU-resident painting
 session with immediate material feedback.
@@ -96,9 +96,10 @@ GPU-to-Image synchronization remains mandatory and separately timed.
   the complete brush material without changing channel targets. Sphere-like
   color swatches and tooltips summarize Base, Metallic, Roughness, Normal,
   Height, Emission, and Subsurface values.
-- Paintable per-layer image masks with visibility, inversion, opacity, and
-  independent per-channel scope. Masks drive generated materials and flattened
-  export; their source images are retained when removed from a layer.
+- Reusable material mask assets with one grayscale image and UV definition can
+  be linked to Paint and Fill layers. Every link has independent visibility,
+  inversion, opacity, and channel scope. Painting the asset updates all linked
+  layers; unlinking retains both the asset and source image.
 - A GPU-resident **Soften** brush that blurs all enabled active-layer channel
   canvases together; brush strength, falloff, and optional pressure control the
   effect without synchronizing images back to the CPU.
@@ -130,7 +131,7 @@ not GPU paint-canvas channels.
 ## Install
 
 Impasto currently targets Blender 5.1 and is experimental. Download
-`impasto-0.15.41.zip` from the
+`impasto-0.16.0.zip` from the
 [v2026.08.28 release](https://github.com/Teo-Asinari/blender-workflow-lab/releases/tag/v2026.08.28)
 and install it with **Edit > Preferences > Add-ons > Install from Disk**,
 then enable **Impasto**. Copying `addons/impasto/` into `scripts/addons/`

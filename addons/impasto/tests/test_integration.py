@@ -14,7 +14,7 @@ if ADDONS not in sys.path:
     sys.path.insert(0, ADDONS)
 
 import impasto
-from impasto import engine, model
+from impasto import engine, model, snapshot
 
 
 def check(name, condition, detail=""):
@@ -27,8 +27,8 @@ try:
     impasto.register()
     check("package registration",
           hasattr(bpy.types.ShaderNodeTree, "impasto"))
-    check("metadata", impasto.bl_info["version"] == (0, 15, 41))
-    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.15.41")
+    check("metadata", impasto.bl_info["version"] == (0, 16, 0))
+    check("panel version label", impasto.ui._VERSION_LABEL == "Impasto 0.16.0")
     focused_prop = impasto.props.ImpastoLayer.bl_rna.properties[
         "focused_paint_ui"]
     check("focused painting UI is opt-in and clearly described",
@@ -199,9 +199,11 @@ try:
           and len(paint_layer.masks) == 1
           and paint_layer.active_mask_index == 0)
     mask = paint_layer.masks[0]
+    asset = tree.impasto.mask_assets.get(mask.asset_uid)
     mask_image = bpy.data.images.get(mask.image_name)
-    check("mask owns a white Non-Color canvas at layer resolution",
-          mask_image is not None
+    check("stack mask asset owns the original grayscale image and UV",
+          asset is not None and asset.image_name == mask.image_name
+          and mask_image is not None
           and tuple(mask_image.size) == tuple(
               bpy.data.images[paint_layer.image_name].size)
           and mask_image.colorspace_settings.name
@@ -211,8 +213,31 @@ try:
           impasto.paint.activate_mask_target(
               bpy.context, paint_layer, mask) in {True, False}
           and bpy.context.scene.tool_settings.image_paint.canvas == mask_image)
-    check("mask scope is independently configurable per channel",
-          all(binding.use_masks for binding in paint_layer.bindings))
+    check("mask reference scope is independently configurable per channel",
+          all(mask.channels) and all(binding.use_masks
+                                     for binding in paint_layer.bindings))
+    mask.channels[model.CHANNEL_ORDER["roughness"]] = False
+    snap_mask = next(ly for ly in snapshot.snapshot(tree).layers
+                     if ly.uid == paint_layer.name).masks[0]
+    check("reference channel scope reaches compiled snapshots",
+          "roughness" not in snap_mask.channels
+          and "base_color" in snap_mask.channels)
+    fill_layer = next(ly for ly in tree.impasto.layers
+                      if ly.layer_type == 'FILL')
+    shared_ref = fill_layer.masks.add()
+    shared_ref.name = model.new_uid()
+    shared_ref.asset_uid = asset.name
+    asset.label = "Shared Dirt"
+    snap = snapshot.snapshot(tree)
+    check("Paint and Fill layers resolve edits to one shared asset",
+          sum(m.image_name == asset.image_name for ly in snap.layers
+              for m in ly.masks) == 2
+          and all(m.label == "Shared Dirt" for ly in snap.layers
+                  for m in ly.masks))
+    check("referenced mask assets refuse deletion",
+          bpy.ops.impasto.mask_asset_delete(asset_uid=asset.name)
+          == {'CANCELLED'}
+          and tree.impasto.mask_assets.get(asset.name) is not None)
     paint_layer.bindings[0].use_masks = False
     check("mask channel exclusion persists in layer state",
           not paint_layer.bindings[0].use_masks
@@ -221,7 +246,21 @@ try:
     check("remove mask retains its source image",
           bpy.ops.impasto.mask_remove() == {"FINISHED"}
           and len(paint_layer.masks) == 0
-          and bpy.data.images.get(kept_mask_name) is not None)
+          and bpy.data.images.get(kept_mask_name) is not None
+          and tree.impasto.mask_assets.get(asset.name) is not None)
+    # Simulate a schema-2 file: migration creates an asset but never an image.
+    legacy = paint_layer.masks.add()
+    legacy.name = model.new_uid()
+    legacy.label = "Legacy"
+    legacy.image_name = kept_mask_name
+    legacy.uv_map = paint_layer.uv_map
+    tree.impasto.schema_version = 2
+    image_count = len(bpy.data.images)
+    engine.run_migrations(tree)
+    check("legacy masks migrate without image duplication",
+          tree.impasto.schema_version == 3 and legacy.asset_uid
+          and tree.impasto.mask_assets.get(legacy.asset_uid).image_name
+          == kept_mask_name and len(bpy.data.images) == image_count)
 
     paint_layer.paint_color = (0.12, 0.34, 0.56)
     paint_layer.paint_roughness = 0.23
