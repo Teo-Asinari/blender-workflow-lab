@@ -134,6 +134,11 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                 row.menu("IMPASTO_MT_add_channel", text="", icon='ADD')
                 if layer.ui_show_channels:
                     self._draw_bindings(channels_box, state, layer)
+                # Essential paint controls precede the extensible mask UI.
+                # Blender stops drawing the rest of a panel after a layout
+                # exception, so mask presentation must never hide painting.
+                if layer.layer_type == 'PAINT':
+                    self._draw_paint_tools(context, box, layer)
                 masks_box = box.box()
                 row = masks_box.row(align=True)
                 row.label(text="Shared Masks", icon='MOD_MASK')
@@ -146,8 +151,11 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                 for index, mask in enumerate(layer.masks):
                     row = masks_box.row(align=True)
                     row.prop(mask, "visible", text="")
-                    row.prop_search(mask, "asset_uid", state, "mask_assets",
-                                    text="")
+                    asset = state.mask_assets.get(mask.asset_uid)
+                    row.label(text=(asset.label if asset is not None else
+                                    "Missing shared mask"),
+                              icon='IMAGE_DATA' if asset is not None
+                              else 'ERROR')
                     row.prop(mask, "invert", text="Invert")
                     row.prop(mask, "opacity", text="", slider=True)
                     op = row.operator(
@@ -178,18 +186,15 @@ class IMPASTO_PT_main(PaintPanelMixin, bpy.types.Panel):
                     assets = masks_box.box()
                     assets.label(text="Material Mask Library")
                     for asset in state.mask_assets:
-                        row = assets.row(align=True)
+                        card = assets.box()
+                        row = card.row(align=True)
                         row.prop(asset, "label", text="")
-                        row.prop_search(asset, "image_name", bpy.data,
-                                        "images", text="")
-                        row.prop_search(asset, "uv_map", context.object.data,
-                                        "uv_layers", text="")
                         op = row.operator(
                             ops.IMPASTO_OT_mask_asset_delete.bl_idname,
                             text="", icon='TRASH')
                         op.asset_uid = asset.name
-                if layer.layer_type == 'PAINT':
-                    self._draw_paint_tools(context, box, layer)
+                        card.prop(asset, "image_name", text="Image")
+                        card.prop(asset, "uv_map", text="UV Map")
             else:
                 box.prop(layer, "opacity", slider=True)
 

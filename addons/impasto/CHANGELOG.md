@@ -4,6 +4,13 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.16.1
+
+- Keep Start GPU Painting and Advanced/stencil controls ahead of the shared
+  mask library so a mask-layout problem cannot hide essential Paint UI.
+- Replace fragile inline mask-library searches with explicit asset cards and
+  resolved reference labels.
+
 ## 0.16.0
 
 - Masks are now named material-stack assets: one grayscale Blender Image and

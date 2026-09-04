@@ -160,6 +160,15 @@ try:
         check("registered operator " + operator_id,
               hasattr(getattr(bpy.ops, namespace), name))
 
+    ui_source = (Path(impasto.__file__).parent / "ui.py").read_text(
+        encoding="utf-8")
+    paint_call = 'self._draw_paint_tools(context, box, layer)'
+    masks_call = 'masks_box = box.box()'
+    check("critical Paint controls precede shared-mask UI",
+          ui_source.index(paint_call) < ui_source.index(masks_call))
+    check("shared-mask rows avoid fragile inline searches",
+          'prop_search(mask, "asset_uid"' not in ui_source)
+
     impasto.unregister()
     registered = False
     check("ShaderNodeTree property removed",
