@@ -113,9 +113,8 @@ def draw_recent_colors(layout, layer, channel_keys):
 
 def draw_material_presets(layout, layer):
     """Compact persistent palette; node sockets provide sphere thumbnails."""
-    preferences = ops.impasto_preferences(bpy.context)
-    if preferences is not None and preferences.global_material_presets:
-        ops.load_global_material_presets(layer.id_data.impasto)
+    # Never mutate Blender data from Panel.draw(). Global presets are loaded
+    # when a stack is created; draw must remain a pure presentation path.
     box = layout.box()
     header = box.row(align=True)
     header.prop(
@@ -232,6 +231,32 @@ class PaintPanelMixin:
                 if 'emission_strength' in keys:
                     emission.prop(layer, "paint_emission_strength",
                                   text="Strength")
+        # Session controls are intentionally before optional history/preset
+        # palettes. A presentation failure in those palettes must never make
+        # the layer impossible to paint.
+        paint.prop(layer, "focused_paint_ui", toggle=True,
+                   icon='FULLSCREEN_ENTER')
+        row = paint.row()
+        row.scale_y = 1.35
+        row.enabled = not gpu_engine.session_active()
+        if layer.paint_workflow == 'GPU':
+            row.operator(ops.IMPASTO_OT_gpu_paint.bl_idname,
+                         text="Start GPU Painting", icon='BRUSH_DATA')
+        else:
+            row.operator(ops.IMPASTO_OT_native_multichannel_paint.bl_idname,
+                         text="Start Blender Brush Replay", icon='TPAINT_HLT')
+
+        row = paint.row(align=True)
+        row.prop(layer, "ui_show_advanced", text="Advanced",
+                 icon='TRIA_DOWN' if layer.ui_show_advanced
+                 else 'TRIA_RIGHT', emboss=False)
+        if layer.ui_show_advanced:
+            self._draw_advanced_paint(paint, layer)
+        if gpu_engine.session_active():
+            self._draw_gpu_session(paint)
+        if gpu_engine.last_error():
+            paint.label(text="GPU paint failed — see console", icon='ERROR')
+
         draw_recent_colors(paint, layer, keys)
         draw_material_presets(paint, layer)
         if any(k in keys for k in
@@ -258,29 +283,6 @@ class PaintPanelMixin:
                     icon='INFO')
                 subsurface.label(text="Radius sets relative RGB travel",
                                  icon='INFO')
-
-        paint.prop(layer, "focused_paint_ui", toggle=True,
-                   icon='FULLSCREEN_ENTER')
-        row = paint.row()
-        row.scale_y = 1.35
-        row.enabled = not gpu_engine.session_active()
-        if layer.paint_workflow == 'GPU':
-            row.operator(ops.IMPASTO_OT_gpu_paint.bl_idname,
-                         text="Start GPU Painting", icon='BRUSH_DATA')
-        else:
-            row.operator(ops.IMPASTO_OT_native_multichannel_paint.bl_idname,
-                         text="Start Blender Brush Replay", icon='TPAINT_HLT')
-
-        row = paint.row(align=True)
-        row.prop(layer, "ui_show_advanced", text="Advanced",
-                 icon='TRIA_DOWN' if layer.ui_show_advanced
-                 else 'TRIA_RIGHT', emboss=False)
-        if layer.ui_show_advanced:
-            self._draw_advanced_paint(paint, layer)
-        if gpu_engine.session_active():
-            self._draw_gpu_session(paint)
-        if gpu_engine.last_error():
-            paint.label(text="GPU paint failed — see console", icon='ERROR')
 
     def _draw_advanced_paint(self, box, layer):
         col = box.column(align=True)

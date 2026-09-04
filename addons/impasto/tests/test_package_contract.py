@@ -168,6 +168,16 @@ try:
           ui_source.index(paint_call) < ui_source.index(masks_call))
     check("shared-mask rows avoid fragile inline searches",
           'prop_search(mask, "asset_uid"' not in ui_source)
+    paint_ui_source = (Path(impasto.__file__).parent / "ui_paint.py").read_text(
+        encoding="utf-8")
+    check("paint controls precede optional preset palette",
+          paint_ui_source.index('text="Start GPU Painting"')
+          < paint_ui_source.index('draw_material_presets(paint, layer)'))
+    preset_draw = paint_ui_source[
+        paint_ui_source.index("def draw_material_presets"):
+        paint_ui_source.index("class PaintPanelMixin")]
+    check("material preset drawing does not mutate stack data",
+          "load_global_material_presets" not in preset_draw)
 
     impasto.unregister()
     registered = False

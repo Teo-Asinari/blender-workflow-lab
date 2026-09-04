@@ -4,6 +4,14 @@ This file records shipped user-visible changes. Detailed historical engineering
 notes remain available in
 [docs/archive/PROGRESS_LEGACY.md](docs/archive/PROGRESS_LEGACY.md).
 
+## 0.16.2
+
+- Restore the painting session and Advanced/stencil controls by removing
+  global material-preset synchronization from panel drawing. Blender UI draw
+  callbacks are now presentation-only.
+- Render essential session controls before optional Recent Colors and Stroke
+  Material Presets palettes, containing any future palette rendering error.
+
 ## 0.16.1
 
 - Keep Start GPU Painting and Advanced/stencil controls ahead of the shared
